@@ -57,11 +57,21 @@ footer {
 		<button id="btn">Boop</button>
 	</div>
 	<div style="margin:48px">
-		<h2>Automation</h2>
+		<h2> Upgrades & Automation</h2>
+		<div>
+			<button id="fingerBtn">Buy Extra Finger</button>
+			<div>
+				+0.25 per click <br>
+				Cost: 20
+				<br>
+				Owned:<label class="small" id="fingerLbl">0</label>
+			</div>
+		</div>
 		<div>
 			<button id="workerBtn">Buy Worker</button>
 			<div>
-				Cost: 10
+				+0.5 per second <br>
+				Cost: 100
 				<br>
 				Owned:<label class="small" id="workerLbl">0</label>
 			</div>
@@ -80,29 +90,41 @@ footer {
 <script>
 
 let tacks = 0;
+let TPS = 0;
+let timeAdjust = 1000 / 24;
 
 let lbl = document.getElementById("lbl");
 let tpsLbl = document.getElementById("tpsLbl");
+let fingerAmount = 0;
 let workerAmount = 0;
 
 const AutoValue = {
-	WORKER: 0.25,
-	SOMETHING: 1
+	FINGER: 0.25,
+	WORKER: 0.5
 };
 
+const AutoPrice = {
+	FINGER: 20,
+	WORKER: 0
+}
+
 document.getElementById("btn").addEventListener("click", context=>{
-Increment(1);
+Increment((fingerAmount * AutoValue.FINGER) + 1);
+});
+
+document.getElementById("fingerBtn").addEventListener("click", context=>{
+if(Buy("finger", 1, AutoPrice.FINGER)) fingerAmount++;
 });
 
 document.getElementById("workerBtn").addEventListener("click", context=>{
-if(Buy("worker", 1, 10)) workerAmount++;
+if(Buy("worker", 1, AutoPrice.WORKER)) workerAmount++;
 });
 
 setInterval(Automation, 1000);
+setInterval(Display, timeAdjust);
 
 function Increment(amount){
 	tacks += amount;
-	lbl.textContent = Math.floor(tacks);
 }
 
 function IncrementSpecific(amount, name){
@@ -113,8 +135,6 @@ function IncrementSpecific(amount, name){
 
 function Decrement(amount){
 	tacks -= amount;
-	lbl.textContent = Math.floor(tacks);
-	console.log("Decremented by " + amount);
 }
 
 function CanAfford(price){
@@ -126,7 +146,6 @@ function Buy(type, amount, price){
 		Decrement(price);
 		IncrementSpecific(amount, type);
 		console.log("Bought: " + amount + "x " + type);
-		
 		return true;
 	}
 	else{
@@ -136,14 +155,19 @@ function Buy(type, amount, price){
 }
 
 function Automation(){
-
-	// Do better with TPS. Divide 1 by worker to get how many seconds it will take to make 1.
-	// Then increase by 1 at a time.
-
 	let workerSeconds = 1 / AutoValue.WORKER;
-	let TPS = AutoValue.WORKER * workerAmount;
-	Increment(TPS);
 	tpsLbl.textContent = "Tacks p/s: " + TPS;
+	CalculateTPS();
+}
+
+function Display(){
+	CalculateTPS();
+	Increment(TPS / timeAdjust);
+	lbl.textContent = Math.floor(tacks);
+}
+
+function CalculateTPS(){
+	TPS = AutoValue.WORKER * workerAmount;
 }
 
 </script>
