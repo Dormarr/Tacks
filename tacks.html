@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en-UK">
+<head>
+	<meta charset="utf-8"/>
+	<title>Paperclips</title>
+	<meta name="viewport" content="width=device-width"/>
+<style>
+body{
+	align-content: center;
+	text-align: center;
+}
+h1 {
+	text-align: center;
+}
+h2 {
+	margin: 8px;
+}
+button{
+	font-size: 16px;
+	padding: 8px;
+	margin: 4px;
+	color: white;
+	background-color: black;
+	transition-duration: 0.2s;
+}
+button:hover{
+	background-color: coral;
+
+}
+label{
+	font-size: 24px;
+	color: black;
+	padding: 12px;
+}
+label.small{
+	font-size: 16px;
+	padding: 2px;
+}
+footer {
+	position: fixed;
+	left: 0;
+	bottom: 0;
+	width: 100%;
+	text-align: center;
+	align-content: center;
+}
+</style>
+</head>
+<! ========================================================================= >
+<body>
+	<div>
+		<h1>Tacks</h1>
+		<p style="text-align:center" id="tpsLbl">Click to increment.</p>
+
+		<label id="lbl">0</label>
+		<br>
+		<button id="btn">Boop</button>
+	</div>
+	<div style="margin:48px">
+		<h2>Automation</h2>
+		<div>
+			<button id="workerBtn">Buy Worker</button>
+			<div>
+				Cost: 10
+				<br>
+				Owned:<label class="small" id="workerLbl">0</label>
+			</div>
+		</div>
+	</div>
+
+<footer>
+	© Ryan Appleyard MMXXV
+</footer>
+
+
+</body>
+
+<! ========================================================================= >
+
+<script>
+
+let tacks = 0;
+
+let lbl = document.getElementById("lbl");
+let tpsLbl = document.getElementById("tpsLbl");
+let workerAmount = 0;
+
+const AutoValue = {
+	WORKER: 0.25,
+	SOMETHING: 1
+};
+
+document.getElementById("btn").addEventListener("click", context=>{
+Increment(1);
+});
+
+document.getElementById("workerBtn").addEventListener("click", context=>{
+if(Buy("worker", 1, 10)) workerAmount++;
+});
+
+setInterval(Automation, 1000);
+
+function Increment(amount){
+	tacks += amount;
+	lbl.textContent = Math.floor(tacks);
+}
+
+function IncrementSpecific(amount, name){
+	var label = document.getElementById(name + "Lbl");
+	currentNo = parseFloat(label.textContent) + amount;
+	label.textContent = Math.floor(currentNo);
+}
+
+function Decrement(amount){
+	tacks -= amount;
+	lbl.textContent = Math.floor(tacks);
+	console.log("Decremented by " + amount);
+}
+
+function CanAfford(price){
+	return true ? price <= parseInt(tacks, 10) : false;
+}
+
+function Buy(type, amount, price){
+	if(CanAfford(price)){
+		Decrement(price);
+		IncrementSpecific(amount, type);
+		console.log("Bought: " + amount + "x " + type);
+		
+		return true;
+	}
+	else{
+		console.log("Can't afford another " + type);
+		return false;
+	}		
+}
+
+function Automation(){
+
+	// Do better with TPS. Divide 1 by worker to get how many seconds it will take to make 1.
+	// Then increase by 1 at a time.
+
+	let workerSeconds = 1 / AutoValue.WORKER;
+	let TPS = AutoValue.WORKER * workerAmount;
+	Increment(TPS);
+	tpsLbl.textContent = "Tacks p/s: " + TPS;
+}
+
+</script>
+
+</html>
