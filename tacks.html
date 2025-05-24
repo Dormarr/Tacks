@@ -7,20 +7,23 @@
 <style>
 :root{
 	--white: #171717;
-	--black: #F4F4F4;
+	--black: #f5f1ec;
 	--whiteAccent: #DDD;
+	--ascii: #f5f1ec;
 	--feature: coral;
 }
 .light{
 	--black: #171717;
-	--white: #F4F4F4;
+	--white: #f5f1ec;
 	--whiteAccent: #DDD;
+	--ascii: #5c5b59;
 	--feature: coral;
 }
 .dark{
 	--white: #171717;
-	--black: #F4F4F4;
+	--black: #f5f1ec;
 	--whiteAccent: #DDD;
+	--ascii: #f5f1ec;
 	--feature: coral;
 }
 body{
@@ -57,13 +60,14 @@ button{
 	background-color: var(--black);
 	transition-duration: 0.2s;
 	font-family: monospace;
+	font-weight: bold;
 }
 button:hover{
 	background-color: var(--feature);
 
 }
 label{
-	font-size: 24px;
+	font-size: 32px;
 	color: var(--black);
 	padding: 12px;
 	font-family: monospace;
@@ -82,7 +86,7 @@ footer {
 }
 div.widget{
 	background-color: var(--white);
-	border: solid 2px var(--whiteAccent);
+	border: solid 1px var(--black);
 	min-width: 250px;
 	width: fit-content;
 	padding: 12px;
@@ -96,7 +100,7 @@ div.widget{
   position: absolute;
   top: -20px;
   left: 0;
-
+  color: var(--ascii);
 }
 </style>
 </head>
@@ -106,6 +110,8 @@ div.widget{
 		<label class="small"; id="dateTimeLbl">DateTime</label>
 		<br>
 		<label class="small"; id="upTimeLbl">UpTime</label>
+		<br>
+		<label class="small"; id="playedTimeLbl">PlayedTime</label>
 		<br>
 		<p>Add more debug stuff.</p>
 	</div>
@@ -150,9 +156,13 @@ div.widget{
 			</div>
 		</div>
 	</div>
-	<div style="position:absolute; bottom: px; left: 80px;">
+	<div style="position:absolute; bottom: 40px; left: 80px;">
 		<h2>Preferences</h2>
-		<button id="toggleDark">Toggle Dark Mode</button>
+		<button id="toggleDark">Toggle Dark Mode</button><br>
+		<button id="saveGame">Save</button>
+	</div>
+	<div style="position: absolute; bottom: 80px; text-align: center; width: 99%;">
+		<label class="small" id="notifLbl" style="visibility: hidden;">NOTIFICATION</label>
 	</div>
 <footer>
 	© Ryan Appleyard MMXXV
@@ -165,21 +175,30 @@ div.widget{
 
 <script>
 
-let tacks = 0;
+const DATA = {
+	tacks: 0,
+	fingerAmount: 0,
+	workerAmount: 0,
+	playedTime: 0
+}
+
+const COLOURS = {
+	green: "#86CD82"
+}
+
 let TPS = 0;
 const FPS = 1000 / 32;
 const tpsLbl = document.getElementById("tpsLbl");
 
 let upTime = 0;
-let minutes = 0;
-let hours = 0;
+// let minutes;
+// let hours;
 
 let startTime = Date.now();
 const upTimeLbl = document.getElementById("upTimeLbl");
 const dateTimeLbl = document.getElementById("dateTimeLbl");
-
-let fingerAmount = 0;
-let workerAmount = 0;
+const playedTimeLbl = document.getElementById("playedTimeLbl");
+const notifLbl = document.getElementById("notifLbl");
 
 let AutoValue = {
 	FINGER: 0.25,
@@ -191,19 +210,50 @@ let AutoPrice = {
 	WORKER: 100
 }
 
+const saveData = {
+	version: "1.0.0",
+	resources: {
+		tacks: DATA.tacks,
+		fingers: DATA.fingerAmount,
+		workers: DATA.workerAmount,
+		playedTime: DATA.playedTime
+	},
+	//add whatever else.
+	lastSave: Date.now()
+}
+
+function SaveGame(){
+	localStorage.setItem("tacksSave", JSON.stringify(DATA));
+	PrintNotification("Saved Game.", COLOURS.green);
+}
+
+function LoadGame(){
+	const saveData = localStorage.getItem("tacksSave");
+	if(saveData){
+		let parsed = JSON.parse(saveData);
+		DATA.tacks = parsed.tacks || 0;
+		DATA.fingerAmount = parsed.fingerAmount || 0;
+		DATA.workerAmount = parsed.workerAmount || 0;
+		DATA.playedTime = parsed.playedTime || 0;
+	}else{
+		return;
+	}
+}
+
+LoadGame();
 Init();
 Automation();
 
 document.getElementById("btn").addEventListener("click", context=>{
-Increment((fingerAmount * AutoValue.FINGER) + 1);
+Increment((DATA.fingerAmount * AutoValue.FINGER) + 1);
 });
 
 document.getElementById("fingerBtn").addEventListener("click", context=>{
-if(Buy("finger", 1, AutoPrice.FINGER)) fingerAmount++;
+if(Buy("finger", 1, AutoPrice.FINGER)) DATA.fingerAmount++;
 });
 
 document.getElementById("workerBtn").addEventListener("click", context=>{
-if(Buy("worker", 1, AutoPrice.WORKER)) workerAmount++;
+if(Buy("worker", 1, AutoPrice.WORKER)) DATA.workerAmount++;
 });
 
 document.getElementById("toggleDark").addEventListener("click", function(){
@@ -211,16 +261,26 @@ document.getElementById("toggleDark").addEventListener("click", function(){
 	element.classList.toggle("light");
 });
 
+document.getElementById("saveGame").addEventListener("click", function(){
+	SaveGame();
+})
+
 setInterval(Automation, 1000);
 setInterval(Display, FPS);
+setInterval(AutosaveGame, 600000);
+
+function AutosaveGame(){
+	SaveGame();
+	PrintNotification("Autosaved.", COLOURS.green);
+}
 
 function Init(){
-	IncrementSpecific(workerAmount, "worker");
-	IncrementSpecific(fingerAmount, "finger");
+	IncrementSpecific(DATA.workerAmount, "worker");
+	IncrementSpecific(DATA.fingerAmount, "finger");
 }
 
 function Increment(amount){
-	tacks += amount;
+	DATA.tacks += amount;
 }
 
 function IncrementSpecific(amount, name){
@@ -230,18 +290,18 @@ function IncrementSpecific(amount, name){
 }
 
 function Decrement(amount){
-	tacks -= amount;
+	DATA.tacks -= amount;
 }
 
 function CanAfford(price){
-	return true ? price <= parseInt(tacks, 10) : false;
+	return true ? price <= parseInt(DATA.tacks, 10) : false;
 }
 
 function Buy(type, amount, price){
 	if(CanAfford(price)){
 		Decrement(price);
 		IncrementSpecific(amount, type);
-		console.log("Bought: " + amount + "x " + type);
+		PrintNotification("Bought: " + amount + "x " + type, COLOURS.green);
 		return true;
 	}
 	else{
@@ -256,25 +316,39 @@ function Automation(){
 	tpsLbl.textContent = "Tacks p/s: " + TPS.toFixed(2);
 	dateTimeLbl.textContent = new Date().toLocaleString();
 	upTime++;
-	var elapsedTime = PrintElapsedTime();
-	upTimeLbl.textContent = "Up Time: " + elapsedTime;
+	var upTimeElapsed = ConvertTime(upTime);
+	upTimeLbl.textContent = "Up Time: " + upTimeElapsed;
+	DATA.playedTime++;
+	var playedTimeElapsed = ConvertTime(DATA.playedTime)
+	playedTimeLbl.textContent = "Played Time: " + playedTimeElapsed;
 }
 
 // Called 24 times per second
 function Display(){
 	Increment(TPS / FPS);
-	lbl.textContent = NumberWithCommas(Math.floor(tacks));
+	lbl.textContent = NumberWithCommas(Math.floor(DATA.tacks));
 }
 
 function CalculateTPS(){
-	TPS = AutoValue.WORKER * workerAmount;
+	TPS = AutoValue.WORKER * DATA.workerAmount;
 }
 
-function PrintElapsedTime(){
-	let seconds = Math.floor(upTime);
-	if(seconds == 60)	{ upTime = 0; seconds = 0; minutes++; }
-	if(minutes == 60)	{ hours++; minutes = 0; }
-	return Math.floor(hours) + "h " + Math.floor(minutes) + "m " + Math.floor(seconds) + "s";
+function ConvertTime(timeIn){
+	const hours = Math.floor(timeIn / 3600);
+	const minutes = Math.floor((timeIn % 36000) / 60);
+	const seconds = timeIn % 60;
+
+	return hours + "h " + minutes + "m " + seconds + "s";
+}
+
+function PrintNotification(message, color){
+	// Display message in desired colour for set amount of time.
+	notifLbl.style.visibility = "visible";
+	notifLbl.textContent = message;
+	notifLbl.style.color = color;
+	setTimeout(() => {
+		notifLbl.style.visibility = "hidden";
+	}, "3000");
 }
 
 function NumberWithCommas(x) {
