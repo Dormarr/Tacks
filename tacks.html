@@ -2,29 +2,46 @@
 <html lang="en-UK">
 <head>
 	<meta charset="utf-8"/>
-	<title>Paperclips</title>
+	<title>Tacks</title>
 	<meta name="viewport" content="width=device-width"/>
 <style>
+:root{
+	--black: #171717;
+	--white: #F4F4F4;
+	--whiteAccent: #DDD;
+	--feature: coral;
+}
 body{
-	align-content: center;
+	width: 99%;
 	text-align: center;
+	align-content: center;
+	background-color: var(--white);
+	color: var(--black);
 }
 h1 {
 	text-align: center;
+	color: var(--black);
+}
+h1.title{
+	text-align: center;
+	color:  vaR(--black);
+	font-size: 48px;
+	margin: 0px;
 }
 h2 {
 	margin: 8px;
+	color: var(--black);
 }
 button{
 	font-size: 16px;
 	padding: 8px;
 	margin: 4px;
 	color: white;
-	background-color: black;
+	background-color: var(--black);
 	transition-duration: 0.2s;
 }
 button:hover{
-	background-color: coral;
+	background-color: var(--feature);
 
 }
 label{
@@ -44,36 +61,71 @@ footer {
 	text-align: center;
 	align-content: center;
 }
+div.widget{
+	background-color: var(--white);
+	border: solid 2px var(--whiteAccent);
+	min-width: 250px;
+	width: fit-content;
+	padding: 12px;
+	margin: 12px;
+	border-radius: 4px;
+	text-align: center;
+}
+#ascii{
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+
+}
 </style>
 </head>
 <! ========================================================================= >
 <body>
-	<div>
-		<h1>Tacks</h1>
+	<div style="position: absolute; right: 20px; top: 272px; text-align: right;">
+		<label class="small"; id="dateTimeLbl">DateTime</label>
+		<br>
+		<label class="small"; id="upTimeLbl">UpTime</label>
+	</div>
+	<pre id="ascii" style=" z-index: -1"></pre>
+	<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+		<div style="background-color: var(--white); z-index: 2; display: flex; flex-direction: column; align-items: center; border: solid 1px var(--black);
+					width: fit-content; padding-left: 80px; padding-right: 80px; padding-top: 16px; padding-bottom: 16px;; margin-top: 64px; align-content: center;">
+			<h1 class="title">Tacks</h1>
+			<p style="color: var(--black); margin-top: 0px;">A Lesser Paperclips</p>
+		</div>
+
+	</div>
+	<div style="display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 72px">
+	<div class="widget">
 		<p style="text-align:center" id="tpsLbl">Click to increment.</p>
 
 		<label id="lbl">0</label>
 		<br>
 		<button id="btn">Boop</button>
 	</div>
-	<div style="margin:48px">
-		<h2> Upgrades & Automation</h2>
-		<div>
-			<button id="fingerBtn">Buy Extra Finger</button>
-			<div>
-				+0.25 per click <br>
-				Cost: 20
-				<br>
-				Owned:<label class="small" id="fingerLbl">0</label>
+	</div>
+	<h2> Upgrades & Automation</h2>
+	<div style="display: flex; flex-direction: column; align-items: center; width: 100%">
+		<div style="width: fit-content">
+			<div class="widget">
+				<button id="fingerBtn">Buy Extra Finger</button>
+				<div>
+					+0.25 per click <br>
+					Cost: 20
+					<br>
+					Owned:<label class="small" id="fingerLbl">0</label>
+				</div>
 			</div>
-		</div>
-		<div>
-			<button id="workerBtn">Buy Worker</button>
-			<div>
-				+0.5 per second <br>
-				Cost: 100
-				<br>
-				Owned:<label class="small" id="workerLbl">0</label>
+			<div class="widget">
+				<button id="workerBtn">Buy Worker</button>
+				<div>
+					+0.4 per second <br>
+					Cost: 100
+					<br>
+					Owned:<label class="small" id="workerLbl">0</label>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -91,22 +143,32 @@ footer {
 
 let tacks = 0;
 let TPS = 0;
-let timeAdjust = 1000 / 24;
+const FPS = 1000 / 32;
+const tpsLbl = document.getElementById("tpsLbl");
 
-let lbl = document.getElementById("lbl");
-let tpsLbl = document.getElementById("tpsLbl");
+let upTime = 0;
+let minutes = 0;
+let hours = 0;
+
+let startTime = Date.now();
+const upTimeLbl = document.getElementById("upTimeLbl");
+const dateTimeLbl = document.getElementById("dateTimeLbl");
+
 let fingerAmount = 0;
 let workerAmount = 0;
 
-const AutoValue = {
+let AutoValue = {
 	FINGER: 0.25,
-	WORKER: 0.5
+	WORKER: 0.4
 };
 
-const AutoPrice = {
+let AutoPrice = {
 	FINGER: 20,
-	WORKER: 0
+	WORKER: 100
 }
+
+Init();
+Automation();
 
 document.getElementById("btn").addEventListener("click", context=>{
 Increment((fingerAmount * AutoValue.FINGER) + 1);
@@ -121,7 +183,12 @@ if(Buy("worker", 1, AutoPrice.WORKER)) workerAmount++;
 });
 
 setInterval(Automation, 1000);
-setInterval(Display, timeAdjust);
+setInterval(Display, FPS);
+
+function Init(){
+	IncrementSpecific(workerAmount, "worker");
+	IncrementSpecific(fingerAmount, "finger");
+}
 
 function Increment(amount){
 	tacks += amount;
@@ -154,22 +221,156 @@ function Buy(type, amount, price){
 	}		
 }
 
+// Called once per second
 function Automation(){
-	let workerSeconds = 1 / AutoValue.WORKER;
-	tpsLbl.textContent = "Tacks p/s: " + TPS;
 	CalculateTPS();
+	tpsLbl.textContent = "Tacks p/s: " + TPS.toFixed(2);
+	dateTimeLbl.textContent = new Date().toLocaleString();
+	upTime++;
+	var elapsedTime = PrintElapsedTime();
+	upTimeLbl.textContent = "Up Time: " + elapsedTime;
 }
 
+// Called 24 times per second
 function Display(){
-	CalculateTPS();
-	Increment(TPS / timeAdjust);
-	lbl.textContent = Math.floor(tacks);
+	Increment(TPS / FPS);
+	lbl.textContent = NumberWithCommas(Math.floor(tacks));
 }
 
 function CalculateTPS(){
 	TPS = AutoValue.WORKER * workerAmount;
 }
 
-</script>
+function PrintElapsedTime(){
+	let seconds = Math.floor(upTime);
+	if(seconds == 60)	{ upTime = 0; seconds = 0; minutes++; }
+	if(minutes == 60)	{ hours++; minutes = 0; }
+	return Math.floor(hours) + "h " + Math.floor(minutes) + "m " + Math.floor(seconds) + "s";
+}
 
+function NumberWithCommas(x) {
+    x = x.toString();
+    var pattern = /(-?\d+)(\d{3})/;
+    while (pattern.test(x))
+        x = x.replace(pattern, "$1,$2");
+    return x;
+}
+
+// ========================================================= PERLIN
+
+const perm = new Uint8Array(512);
+for (let i = 0; i < 256; i++) perm[i] = i;
+for (let i = 255; i > 0; i--) {
+  const j = Math.floor(Math.random() * (i + 1));
+  [perm[i], perm[j]] = [perm[j], perm[i]];
+}
+for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
+
+function fade(t) {
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+function lerp(a, b, t) {
+  return a + t * (b - a);
+}
+
+function grad(hash, x, y, z) {
+  const h = hash & 15;
+  const u = h < 8 ? x : y;
+  const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+  return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+}
+
+function perlin(x, y, z) {
+  const X = Math.floor(x) & 255;
+  const Y = Math.floor(y) & 255;
+  const Z = Math.floor(z) & 255;
+
+  x -= Math.floor(x);
+  y -= Math.floor(y);
+  z -= Math.floor(z);
+
+  const u = fade(x);
+  const v = fade(y);
+  const w = fade(z);
+
+  const A  = perm[X] + Y, AA = perm[A] + Z, AB = perm[A + 1] + Z;
+  const B  = perm[X + 1] + Y, BA = perm[B] + Z, BB = perm[B + 1] + Z;
+
+  return lerp(
+    lerp(
+      lerp(grad(perm[AA], x, y, z),
+           grad(perm[BA], x - 1, y, z), u),
+      lerp(grad(perm[AB], x, y - 1, z),
+           grad(perm[BB], x - 1, y - 1, z), u), v),
+    lerp(
+      lerp(grad(perm[AA + 1], x, y, z - 1),
+           grad(perm[BA + 1], x - 1, y, z - 1), u),
+      lerp(grad(perm[AB + 1], x, y - 1, z - 1),
+           grad(perm[BB + 1], x - 1, y - 1, z - 1), u), v),
+    w
+  );
+}
+
+const chars = " '.,-*=#$&@";
+const userScreen = document.getElementById("ascii");
+let t = 0;
+let paused = false;
+
+function mapValueToChar(val) {
+  const normalized = (val + 1) / 2;
+  const index = Math.floor(normalized * (chars.length - 1));
+  return chars[index];
+}
+
+function renderFrame() {
+    if (!paused) {
+        let output = "";
+        const width = screen.width;
+        const height = 16;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const value = perlin(x * 0.1, y * 0.1, t);
+        output += mapValueToChar(value);
+      }
+      output += "\n";
+    }
+
+    userScreen.textContent = output;
+    t += 0.01;
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space") paused = !paused;
+});
+
+setInterval(renderFrame, 1000/30);
+
+</script>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
