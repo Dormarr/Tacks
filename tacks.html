@@ -49,6 +49,7 @@ h1.title{
 	margin: 0px;
 }
 h2 {
+	font-size: 24px;
 	margin: 8px;
 	color: var(--black);
 }
@@ -102,11 +103,79 @@ div.widget{
   left: 0;
   color: var(--ascii);
 }
+.notification{
+	color: var(--white);
+	padding: 10px;
+	font-family: monospace;
+	transition-duration: 0.2s;
+	z-index: -1;
+	width: fit-content;
+}
+.notification.show{
+	opacity: 0.9;
+}
+.notification.hide{
+	opacity: 0;
+}
+.slice{
+	width: 100vw;
+	height: fit-content;
+	padding: 12px;
+	align-items: center;
+	align-content: center;
+	display: flex;
+	flex-direction: column;
+}
 </style>
 </head>
 <! ========================================================================= >
 <body>
-	<div style="position: absolute; right: 20px; top: 272px; text-align: right;">
+	<pre id="ascii" style=" z-index: -1;"></pre>
+	<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+		<div style="background-color: var(--white); z-index: 2; display: flex; flex-direction: column; align-items: center; border: solid 1px var(--black);
+					width: fit-content; padding-left: 80px; padding-right: 80px; padding-top: 16px; padding-bottom: 16px;; margin-top: 64px; align-content: center;">
+			<h1 class="title">Tacks</h1>
+			<p style="color: var(--black); margin-top: 0px;">A Lesser Paperclips</p>
+		</div>
+		
+	</div>
+	<div style="display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 72px">
+		<div class="widget">
+			<p style="text-align:center" id="tpsLbl">Click to increment.</p>
+
+			<label id="lbl">0</label>
+			<br>
+			<button id="btn">Boop</button>
+		</div>
+	</div>
+	<h2> Upgrades & Automation</h2>
+	<div style="display: flex; flex-direction: column; align-items: center; width: 100%">
+		<div style="width: fit-content">
+			<div id="fingerSlice" class="slice" style="background-color: blue;">
+				<div class="widget">
+					<button id="fingerBtn">Buy Extra Finger</button>
+					<div>
+						<label class="small">+0.25 per click</label> <br>
+						<label class="small">Cost: 20</label>
+						<br>
+						<label class="small">Owned:<label class="small" id="fingerLbl">0</label></label>
+					</div>
+				</div>
+			</div>
+			<div id="workerSlice" class="slice" style="background-color: darkgreen;">
+				<div class="widget">
+					<button id="workerBtn">Buy Worker</button>
+					<div>
+						<label class="small">+0.4 per second</label><br>
+						<label class="small">Cost: 100</label>
+						<br>
+						<label class="small">Owned:<label class="small" id="workerLbl">0</label></label>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div style="position: absolute; right: 20px; bottom: 80px; text-align: right;">
 		<label class="small"; id="dateTimeLbl">DateTime</label>
 		<br>
 		<label class="small"; id="upTimeLbl">UpTime</label>
@@ -115,54 +184,12 @@ div.widget{
 		<br>
 		<p>Add more debug stuff.</p>
 	</div>
-	<pre id="ascii" style=" z-index: -1;"></pre>
-	<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-		<div style="background-color: var(--white); z-index: 2; display: flex; flex-direction: column; align-items: center; border: solid 1px var(--black);
-					width: fit-content; padding-left: 80px; padding-right: 80px; padding-top: 16px; padding-bottom: 16px;; margin-top: 64px; align-content: center;">
-			<h1 class="title">Tacks</h1>
-			<p style="color: var(--black); margin-top: 0px;">A Lesser Paperclips</p>
-		</div>
-
-	</div>
-	<div style="display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 72px">
-	<div class="widget">
-		<p style="text-align:center" id="tpsLbl">Click to increment.</p>
-
-		<label id="lbl">0</label>
-		<br>
-		<button id="btn">Boop</button>
-	</div>
-	</div>
-	<h2> Upgrades & Automation</h2>
-	<div style="display: flex; flex-direction: column; align-items: center; width: 100%">
-		<div style="width: fit-content">
-			<div class="widget">
-				<button id="fingerBtn">Buy Extra Finger</button>
-				<div>
-					+0.25 per click <br>
-					Cost: 20
-					<br>
-					Owned:<label class="small" id="fingerLbl">0</label>
-				</div>
-			</div>
-			<div class="widget">
-				<button id="workerBtn">Buy Worker</button>
-				<div>
-					+0.4 per second <br>
-					Cost: 100
-					<br>
-					Owned:<label class="small" id="workerLbl">0</label>
-				</div>
-			</div>
-		</div>
-	</div>
 	<div style="position:absolute; bottom: 40px; left: 80px;">
 		<h2>Preferences</h2>
 		<button id="toggleDark">Toggle Dark Mode</button><br>
 		<button id="saveGame">Save</button>
 	</div>
-	<div style="position: absolute; bottom: 80px; text-align: center; width: 99%;">
-		<label class="small" id="notifLbl" style="visibility: hidden;">NOTIFICATION</label>
+	<div id="notificationContainer" style="position: absolute; z-index: -1; display: flex; bottom: 80px; text-align: center; align-items: center; width: 99%; flex-direction: column-reverse;">
 	</div>
 <footer>
 	© Ryan Appleyard MMXXV
@@ -182,8 +209,17 @@ const DATA = {
 	playedTime: 0
 }
 
+// Light and Dark refer to the themes they are paired with.
 const COLOURS = {
-	green: "#86CD82"
+	green: {
+		light: "#3C983E",
+		dark: "#6FD08C"
+	},
+	red: "#FC5130",
+	text: {
+		light: "#111111",
+		dark: "#FFFFFF"
+	}
 }
 
 let TPS = 0;
@@ -198,7 +234,7 @@ let startTime = Date.now();
 const upTimeLbl = document.getElementById("upTimeLbl");
 const dateTimeLbl = document.getElementById("dateTimeLbl");
 const playedTimeLbl = document.getElementById("playedTimeLbl");
-const notifLbl = document.getElementById("notifLbl");
+const notifCont = document.getElementById("notificationContainer");
 
 let AutoValue = {
 	FINGER: 0.25,
@@ -222,9 +258,15 @@ const saveData = {
 	lastSave: Date.now()
 }
 
+
 function SaveGame(){
 	localStorage.setItem("tacksSave", JSON.stringify(DATA));
-	PrintNotification("Saved Game.", COLOURS.green);
+	PrintNotification("Saved Game", COLOURS.green);
+}
+
+function AutosaveGame(){
+	SaveGame();
+	PrintNotification("Autosaved", COLOURS.green, 2000);
 }
 
 function LoadGame(){
@@ -269,14 +311,11 @@ setInterval(Automation, 1000);
 setInterval(Display, FPS);
 setInterval(AutosaveGame, 600000);
 
-function AutosaveGame(){
-	SaveGame();
-	PrintNotification("Autosaved.", COLOURS.green);
-}
-
 function Init(){
 	IncrementSpecific(DATA.workerAmount, "worker");
 	IncrementSpecific(DATA.fingerAmount, "finger");
+
+	// Calculate compounding price changes.
 }
 
 function Increment(amount){
@@ -301,11 +340,11 @@ function Buy(type, amount, price){
 	if(CanAfford(price)){
 		Decrement(price);
 		IncrementSpecific(amount, type);
-		PrintNotification("Bought: " + amount + "x " + type, COLOURS.green);
+		PrintNotification("Bought: " + amount + "x " + type, COLOURS.text, 2000);
 		return true;
 	}
 	else{
-		console.log("Can't afford another " + type);
+		PrintNotification("Can't afford another " + type, COLOURS.red, 2000);
 		return false;
 	}		
 }
@@ -341,14 +380,28 @@ function ConvertTime(timeIn){
 	return hours + "h " + minutes + "m " + seconds + "s";
 }
 
-function PrintNotification(message, color){
-	// Display message in desired colour for set amount of time.
-	notifLbl.style.visibility = "visible";
-	notifLbl.textContent = message;
-	notifLbl.style.color = color;
-	setTimeout(() => {
-		notifLbl.style.visibility = "hidden";
-	}, "3000");
+function PrintNotification(message, color, duration = 3000){
+	const note = document.createElement("div");
+	note.className = "notification";
+	note.textContent = message;
+	note.style.color = getColor(color);
+
+	notifCont.appendChild(note);
+
+	setTimeout(() =>{
+		note.classList.remove("show");
+		note.classList.add("hide");
+		setTimeout(() => note.remove(), 500);
+	}, duration);
+}
+
+function getColor(type) {
+    if (typeof type === "string") return type;
+    return isLightMode() ? type.light : type.dark;
+}
+
+function isLightMode() {
+    return document.body.classList.contains("light");
 }
 
 function NumberWithCommas(x) {
