@@ -27,12 +27,14 @@
 	--feature: coral;
 }
 body{
-	width: 99%;
+	width: 100%;
 	text-align: center;
 	align-content: center;
 	background-color: var(--white);
 	color: var(--black);
 	font-family:monospace;
+	margin: 0px;
+	overflow: hidden;
 }
 .dark-mode{
 	background-color: var(--black);
@@ -96,12 +98,13 @@ div.widget{
 	text-align: center;
 }
 #ascii{
-  max-width: 100vw;
-  overflow-x: hidden;
-  position: absolute;
-  top: -20px;
-  left: 0;
-  color: var(--ascii);
+	max-width: 100vw;
+	min-width: 100vw;
+	overflow-x: hidden;
+	position: absolute;
+	top: -20px;
+	left: 0;
+	color: var(--ascii);
 }
 .notification{
 	color: var(--white);
@@ -130,7 +133,7 @@ div.widget{
 </head>
 <! ========================================================================= >
 <body>
-	<pre id="ascii" style=" z-index: -1;"></pre>
+	<pre id="ascii" style="z-index: -1;"></pre>
 	<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
 		<div style="background-color: var(--white); z-index: 2; display: flex; flex-direction: column; align-items: center; border: solid 1px var(--black);
 					width: fit-content; padding-left: 80px; padding-right: 80px; padding-top: 16px; padding-bottom: 16px;; margin-top: 64px; align-content: center;">
@@ -149,10 +152,11 @@ div.widget{
 		</div>
 	</div>
 	<h2> Upgrades & Automation</h2>
-	<div style="display: flex; flex-direction: column; align-items: center; width: 100%">
+	<div style="display: flex; flex-direction: column; align-items: center; width: 100%; gap: 0px;">
 		<div style="width: fit-content">
-			<div id="fingerSlice" class="slice" style="background-color: blue;">
-				<div class="widget">
+			<div id="fingerSlice" class="slice" style="height: 200px; background-color: blue;">
+				<canvas id="fingerCanvas" style="height: 200px; width: 100vw"></canvas>
+				<div class="widget" style="margin-top: -160px;">
 					<button id="fingerBtn">Buy Extra Finger</button>
 					<div>
 						<label class="small">+0.25 per click</label> <br>
@@ -162,8 +166,9 @@ div.widget{
 					</div>
 				</div>
 			</div>
-			<div id="workerSlice" class="slice" style="background-color: darkgreen;">
-				<div class="widget">
+			<div id="workerSlice" class="slice">
+				<canvas id="workerCanvas" style="height: 200px; width: 100vw;"></canvas>
+				<div class="widget" style="margin-top: -160px">
 					<button id="workerBtn">Buy Worker</button>
 					<div>
 						<label class="small">+0.4 per second</label><br>
@@ -186,7 +191,7 @@ div.widget{
 	</div>
 	<div style="position:absolute; bottom: 40px; left: 80px;">
 		<h2>Preferences</h2>
-		<button id="toggleDark">Toggle Dark Mode</button><br>
+		<button id="toggleDark">Toggle Theme</button><br>
 		<button id="saveGame">Save</button>
 	</div>
 	<div id="notificationContainer" style="position: absolute; z-index: -1; display: flex; bottom: 80px; text-align: center; align-items: center; width: 99%; flex-direction: column-reverse;">
@@ -219,6 +224,10 @@ const COLOURS = {
 	text: {
 		light: "#111111",
 		dark: "#FFFFFF"
+	},
+	ascii: {
+		light: "#5c5b59",
+		dark: "#f5f1ec"
 	}
 }
 
@@ -295,7 +304,10 @@ if(Buy("finger", 1, AutoPrice.FINGER)) DATA.fingerAmount++;
 });
 
 document.getElementById("workerBtn").addEventListener("click", context=>{
-if(Buy("worker", 1, AutoPrice.WORKER)) DATA.workerAmount++;
+	if(Buy("worker", 1, AutoPrice.WORKER)) {
+		DATA.workerAmount++;
+		createGuy();
+	}
 });
 
 document.getElementById("toggleDark").addEventListener("click", function(){
@@ -469,7 +481,7 @@ function perlin(x, y, z) {
 }
 
 // const chars = " '   .,-*=##$&@";
-const chars = "   .oO0@ ";
+const chars = "    ..:oO0@ ";
 const userScreen = document.getElementById("ascii");
 let t = 0;
 let paused = false;
@@ -483,7 +495,9 @@ function mapValueToChar(val) {
 function renderFrame() {
     if (!paused) {
         let output = "";
-        const width = screen.width;
+        const width = userScreen.clientWidth / 6;
+
+		if(width == 0) console.log("ISSUE");
         const height = 18;
 
     for (let y = 0; y < height; y++) {
@@ -499,11 +513,115 @@ function renderFrame() {
   }
 }
 
-document.addEventListener("keydown", (e) => {
-  if (e.code === "Space") paused = !paused;
-});
+// Don't want this for prod
+// document.addEventListener("keydown", (e) => {
+//   if (e.code === "Space") paused = !paused;
+// });
 
 setInterval(renderFrame, FPS);
+
+// =================================== LITTLE GUYS ========================================
+
+const canvas = document.getElementById("workerCanvas");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = 200;
+
+const size = 12;
+
+const CHAR_GUY = [
+  "  o  ",
+  " /|\\ ",
+  " / \\ "
+];
+
+const mouse = { x: 0, y: 0 };
+const guys = [];
+const WIGGLE_AMPLITUDE = 2; // max wiggle in pixels
+const WIGGLE_SPEED = 0.01;  // speed of wiggle
+const REPULSION_RADIUS = 450; // smaller radius so repulsion looks nicer
+const REPULSION_FORCE = 2; // how strongly guys get pushed away
+
+let guysCount = 20;
+
+// Initialize guys with fixed home positions and unique IDs
+for (let i = 0; i < guysCount; i++) {
+  guys.push({
+    homeX: Math.random() * canvas.width,
+    homeY: Math.random() * canvas.height,
+    id: i
+  });
+}
+
+canvas.addEventListener("mousemove", e => {
+  const rect = canvas.getBoundingClientRect(); // get canvas position & size
+  mouse.x = e.clientX - rect.left; // mouse x relative to canvas
+  mouse.y = e.clientY - rect.top;  // mouse y relative to canvas
+});
+
+// canvas.addEventListener("click", () => {
+// 	// createGuy(mouse.x, mouse.y);
+// 	createGuy();
+// });
+
+function createGuy(x = Math.random(), y = Math.random()){
+	guysCount++;
+  	guys.push({
+    homeX: x * canvas.width,
+    homeY: y * canvas.height,
+    id: guysCount
+  	});
+  	console.log(`Added guy #${guysCount} at (${mouse.x}, ${mouse.y})`);
+}
+
+function drawGuy(x, y) {
+  ctx.font = "12px monospace";
+  ctx.fillStyle = getColor(COLOURS.ascii);
+  for (let i = 0; i < CHAR_GUY.length; i++) {
+    ctx.fillText(CHAR_GUY[i], x, y + i * size);
+  }
+}
+
+let time = 0;
+
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  time += WIGGLE_SPEED;
+
+  guys.forEach(g => {
+    // Calculate distance to mouse
+    const dx = g.homeX - mouse.x;
+    const dy = g.homeY - mouse.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Perlin noise wiggle
+    const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
+    const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
+    const wiggleX = noiseX * WIGGLE_AMPLITUDE;
+    const wiggleY = noiseY * WIGGLE_AMPLITUDE;
+
+    let offsetX = wiggleX;
+    let offsetY = wiggleY;
+
+    // If within repulsion radius, push away from mouse
+    if (dist < REPULSION_RADIUS && dist > 0.01) {
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
+      offsetX += nx * repulseStrength;
+      offsetY += ny * repulseStrength;
+    }
+
+    const drawX = g.homeX + offsetX;
+    const drawY = g.homeY + offsetY;
+
+    drawGuy(drawX, drawY);
+  });
+
+  requestAnimationFrame(update);
+}
+
+update();
 
 </script>
 </html>
