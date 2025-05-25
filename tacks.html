@@ -129,6 +129,10 @@ div.widget{
 	display: flex;
 	flex-direction: column;
 }
+canvas{
+	height: 200px;
+	width: 100vw;
+}
 </style>
 </head>
 <! ========================================================================= >
@@ -167,7 +171,7 @@ div.widget{
 				</div>
 			</div>
 			<div id="workerSlice" class="slice">
-				<canvas id="workerCanvas" style="height: 200px; width: 100vw;"></canvas>
+				<canvas id="workerCanvas"></canvas>
 				<div class="widget" style="margin-top: -160px">
 					<button id="workerBtn">Buy Worker</button>
 					<div>
@@ -207,6 +211,8 @@ div.widget{
 
 <script>
 
+// #region Data
+
 const DATA = {
 	tacks: 0,
 	fingerAmount: 0,
@@ -230,21 +236,6 @@ const COLOURS = {
 		dark: "#f5f1ec"
 	}
 }
-
-let TPS = 0;
-const FPS = 1000 / 32;
-const tpsLbl = document.getElementById("tpsLbl");
-
-let upTime = 0;
-// let minutes;
-// let hours;
-
-let startTime = Date.now();
-const upTimeLbl = document.getElementById("upTimeLbl");
-const dateTimeLbl = document.getElementById("dateTimeLbl");
-const playedTimeLbl = document.getElementById("playedTimeLbl");
-const notifCont = document.getElementById("notificationContainer");
-
 let AutoValue = {
 	FINGER: 0.25,
 	WORKER: 0.4
@@ -267,18 +258,33 @@ const saveData = {
 	lastSave: Date.now()
 }
 
+// #endregion
 
-function SaveGame(){
+let TPS = 0;
+const FPS = 1000 / 32;
+const tpsLbl = document.getElementById("tpsLbl");
+
+let upTime = 0;
+let startTime = Date.now();
+
+const upTimeLbl = document.getElementById("upTimeLbl");
+const dateTimeLbl = document.getElementById("dateTimeLbl");
+const playedTimeLbl = document.getElementById("playedTimeLbl");
+const notifCont = document.getElementById("notificationContainer");
+
+// #region Save Logic
+
+function saveGame(autosave){
 	localStorage.setItem("tacksSave", JSON.stringify(DATA));
-	PrintNotification("Saved Game", COLOURS.green);
+	if(!autosave) printNotification("Saved Game", COLOURS.green);
 }
 
-function AutosaveGame(){
-	SaveGame();
-	PrintNotification("Autosaved", COLOURS.green, 2000);
+function autosaveGame(){
+	saveGame(true);
+	printNotification("Autosaved", COLOURS.green, 2000);
 }
 
-function LoadGame(){
+function loadGame(){
 	const saveData = localStorage.getItem("tacksSave");
 	if(saveData){
 		let parsed = JSON.parse(saveData);
@@ -291,12 +297,17 @@ function LoadGame(){
 	}
 }
 
-LoadGame();
-Init();
-Automation();
+// #endregion
+
+
+loadGame();
+init();
+automation();
+
+// #region Game Logic
 
 document.getElementById("btn").addEventListener("click", context=>{
-Increment((DATA.fingerAmount * AutoValue.FINGER) + 1);
+increment((DATA.fingerAmount * AutoValue.FINGER) + 1);
 });
 
 document.getElementById("fingerBtn").addEventListener("click", context=>{
@@ -316,75 +327,82 @@ document.getElementById("toggleDark").addEventListener("click", function(){
 });
 
 document.getElementById("saveGame").addEventListener("click", function(){
-	SaveGame();
+	saveGame();
 })
 
-setInterval(Automation, 1000);
-setInterval(Display, FPS);
-setInterval(AutosaveGame, 600000);
+setInterval(automation, 1000);
+setInterval(display, FPS);
+setInterval(autosaveGame, 600000);
 
-function Init(){
-	IncrementSpecific(DATA.workerAmount, "worker");
-	IncrementSpecific(DATA.fingerAmount, "finger");
+function init(){
+	incrementSpecific(DATA.workerAmount, "worker");
+	incrementSpecific(DATA.fingerAmount, "finger");
 
 	// Calculate compounding price changes.
 }
 
-function Increment(amount){
+function increment(amount){
 	DATA.tacks += amount;
 }
 
-function IncrementSpecific(amount, name){
+function incrementSpecific(amount, name){
 	var label = document.getElementById(name + "Lbl");
 	currentNo = parseFloat(label.textContent) + amount;
 	label.textContent = Math.floor(currentNo);
 }
 
-function Decrement(amount){
+function decrement(amount){
 	DATA.tacks -= amount;
 }
 
-function CanAfford(price){
+function canAfford(price){
 	return true ? price <= parseInt(DATA.tacks, 10) : false;
 }
 
 function Buy(type, amount, price){
-	if(CanAfford(price)){
-		Decrement(price);
-		IncrementSpecific(amount, type);
-		PrintNotification("Bought: " + amount + "x " + type, COLOURS.text, 2000);
+	if(canAfford(price)){
+		decrement(price);
+		incrementSpecific(amount, type);
+		printNotification("Bought: " + amount + "x " + type, COLOURS.text, 2000);
 		return true;
 	}
 	else{
-		PrintNotification("Can't afford another " + type, COLOURS.red, 2000);
+		printNotification("Can't afford another " + type, COLOURS.red, 2000);
 		return false;
 	}		
 }
 
 // Called once per second
-function Automation(){
-	CalculateTPS();
+function automation(){
+	calculateTPS();
 	tpsLbl.textContent = "Tacks p/s: " + TPS.toFixed(2);
 	dateTimeLbl.textContent = new Date().toLocaleString();
 	upTime++;
-	var upTimeElapsed = ConvertTime(upTime);
+	var upTimeElapsed = convertTime(upTime);
 	upTimeLbl.textContent = "Up Time: " + upTimeElapsed;
 	DATA.playedTime++;
-	var playedTimeElapsed = ConvertTime(DATA.playedTime)
+	var playedTimeElapsed = convertTime(DATA.playedTime)
 	playedTimeLbl.textContent = "Played Time: " + playedTimeElapsed;
 }
 
 // Called 24 times per second
-function Display(){
-	Increment(TPS / FPS);
-	lbl.textContent = NumberWithCommas(Math.floor(DATA.tacks));
+function display(){
+	increment(TPS / FPS);
+	lbl.textContent = numberWithCommas(Math.floor(DATA.tacks));
 }
 
-function CalculateTPS(){
+function calculateTPS(){
 	TPS = AutoValue.WORKER * DATA.workerAmount;
 }
+// #endregion
 
-function ConvertTime(timeIn){
+// #region Utilities
+
+// #endregion
+
+// #region Print & Display
+
+function convertTime(timeIn){
 	const hours = Math.floor(timeIn / 3600);
 	const minutes = Math.floor((timeIn % 36000) / 60);
 	const seconds = timeIn % 60;
@@ -392,7 +410,7 @@ function ConvertTime(timeIn){
 	return hours + "h " + minutes + "m " + seconds + "s";
 }
 
-function PrintNotification(message, color, duration = 3000){
+function printNotification(message, color, duration = 3000){
 	const note = document.createElement("div");
 	note.className = "notification";
 	note.textContent = message;
@@ -416,7 +434,7 @@ function isLightMode() {
     return document.body.classList.contains("light");
 }
 
-function NumberWithCommas(x) {
+function numberWithCommas(x) {
     x = x.toString();
     var pattern = /(-?\d+)(\d{3})/;
     while (pattern.test(x))
@@ -424,8 +442,18 @@ function NumberWithCommas(x) {
     return x;
 }
 
-// ========================================================= PERLIN
+function resizeCanvas(){
+	workerCanvas.width = window.innerWidth - 80;
 
+	guys.forEach(g =>{
+		g.homeX = Math.random() * workerCanvas.width;
+	})
+}
+window.addEventListener("resize", resizeCanvas);
+
+// #endregion
+
+// #region Perlin
 const perm = new Uint8Array(512);
 for (let i = 0; i < 256; i++) perm[i] = i;
 for (let i = 255; i > 0; i--) {
@@ -520,20 +548,27 @@ function renderFrame() {
 
 setInterval(renderFrame, FPS);
 
-// =================================== LITTLE GUYS ========================================
+// #endregion
 
-const canvas = document.getElementById("workerCanvas");
-const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = 200;
-
-const size = 12;
+// #region Guys
+const workerCanvas = document.getElementById("workerCanvas");
+const ctx = workerCanvas.getContext("2d");
+workerCanvas.width = window.innerWidth - 80;
+workerCanvas.height = 200;
 
 const CHAR_GUY = [
   "  o  ",
   " /|\\ ",
   " / \\ "
 ];
+
+const CHAR_FINGER = [
+   "   ^",
+   "r^^| ",
+  "\\__|)"
+];
+
+
 
 const mouse = { x: 0, y: 0 };
 const guys = [];
@@ -542,84 +577,111 @@ const WIGGLE_SPEED = 0.01;  // speed of wiggle
 const REPULSION_RADIUS = 450; // smaller radius so repulsion looks nicer
 const REPULSION_FORCE = 2; // how strongly guys get pushed away
 
-let guysCount = 20;
+const BASE_FONT_SIZE = 12;
+const MAX_FONT_SIZE = 16;
+const SCALE_RADIUS = 100;
+
+let guysCount = DATA.workerAmount;
 
 // Initialize guys with fixed home positions and unique IDs
 for (let i = 0; i < guysCount; i++) {
-  guys.push({
-    homeX: Math.random() * canvas.width,
-    homeY: Math.random() * canvas.height,
-    id: i
-  });
+	guys.push({
+		homeX: Math.random() * (workerCanvas.width - 80),
+		homeY: Math.random() * (workerCanvas.height - 20),
+		id: i
+	});
 }
 
-canvas.addEventListener("mousemove", e => {
-  const rect = canvas.getBoundingClientRect(); // get canvas position & size
-  mouse.x = e.clientX - rect.left; // mouse x relative to canvas
-  mouse.y = e.clientY - rect.top;  // mouse y relative to canvas
-});
+	workerCanvas.addEventListener("mousemove", e => {
+		const rect = workerCanvas.getBoundingClientRect(); // get canvas position & size
+		mouse.x = e.clientX - rect.left; // mouse x relative to canvas
+		mouse.y = e.clientY - rect.top;  // mouse y relative to canvas
+	});
 
-// canvas.addEventListener("click", () => {
-// 	// createGuy(mouse.x, mouse.y);
-// 	createGuy();
-// });
+	// canvas.addEventListener("click", () => {
+	//   guysCount++;
+	//   guys.push({
+	//     homeX: mouse.x,
+	//     homeY: mouse.y,
+	//     id: guysCount
+	//   });
+	//   console.log(`Added guy #${guysCount} at (${mouse.x}, ${mouse.y})`);
+	// });
 
-function createGuy(x = Math.random(), y = Math.random()){
-	guysCount++;
-  	guys.push({
-    homeX: x * canvas.width,
-    homeY: y * canvas.height,
-    id: guysCount
-  	});
-  	console.log(`Added guy #${guysCount} at (${mouse.x}, ${mouse.y})`);
+	function createGuy(x, y){
+		guysCount++;
+		guys.push({
+			homeX: Math.random() * (workerCanvas.width - 80),
+			homeY: Math.random() * (workerCanvas.height - 20),
+			id: guysCount
+		});
+	}
+
+	function drawGuy(x, y, scale) {
+		const fontSize = BASE_FONT_SIZE * scale;
+		const lineHeight = fontSize;
+
+		ctx.font = fontSize + "px monospace";
+		ctx.textBaseline = "top";
+		ctx.fillStyle = getColor(COLOURS.ascii);
+		for (let i = 0; i < CHAR_GUY.length; i++) {
+			ctx.fillText(CHAR_GUY[i], x, y + i * lineHeight);
+		}
+	}
+
+	let time = 0;
+
+	function update() {
+	ctx.clearRect(0, 0, workerCanvas.width, workerCanvas.height);
+	time += WIGGLE_SPEED;
+
+
+	guys.forEach(g => {
+		// Calculate distance to mouse
+		const dx = g.homeX - mouse.x;
+		const dy = g.homeY - mouse.y;
+		const dist = Math.sqrt(dx * dx + dy * dy);
+
+		// Perlin noise wiggle
+		const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
+		const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
+		const wiggleX = noiseX * WIGGLE_AMPLITUDE;
+		const wiggleY = noiseY * WIGGLE_AMPLITUDE;
+
+		let offsetX = wiggleX;
+		let offsetY = wiggleY;
+
+		// If within repulsion radius, push away from mouse
+		if (dist < REPULSION_RADIUS && dist > 0.01) {
+		const nx = dx / dist;
+		const ny = dy / dist;
+		const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
+		offsetX += nx * repulseStrength;
+		offsetY += ny * repulseStrength;
+		}
+
+		let scale = 1;
+		if(dist < SCALE_RADIUS){
+			const t= 1 - dist / SCALE_RADIUS;
+			scale = 1 + t * ((MAX_FONT_SIZE / BASE_FONT_SIZE) -1);
+		}
+
+		const drawX = g.homeX + offsetX;
+		const drawY = g.homeY + offsetY;
+
+		drawGuy(drawX, drawY, scale);
+	});
+
+	
+	
+	requestAnimationFrame(update);
 }
 
-function drawGuy(x, y) {
-  ctx.font = "12px monospace";
-  ctx.fillStyle = getColor(COLOURS.ascii);
-  for (let i = 0; i < CHAR_GUY.length; i++) {
-    ctx.fillText(CHAR_GUY[i], x, y + i * size);
-  }
-}
+// #endregion
 
-let time = 0;
 
-function update() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  time += WIGGLE_SPEED;
 
-  guys.forEach(g => {
-    // Calculate distance to mouse
-    const dx = g.homeX - mouse.x;
-    const dy = g.homeY - mouse.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Perlin noise wiggle
-    const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
-    const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
-    const wiggleX = noiseX * WIGGLE_AMPLITUDE;
-    const wiggleY = noiseY * WIGGLE_AMPLITUDE;
-
-    let offsetX = wiggleX;
-    let offsetY = wiggleY;
-
-    // If within repulsion radius, push away from mouse
-    if (dist < REPULSION_RADIUS && dist > 0.01) {
-      const nx = dx / dist;
-      const ny = dy / dist;
-      const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
-      offsetX += nx * repulseStrength;
-      offsetY += ny * repulseStrength;
-    }
-
-    const drawX = g.homeX + offsetX;
-    const drawY = g.homeY + offsetY;
-
-    drawGuy(drawX, drawY);
-  });
-
-  requestAnimationFrame(update);
-}
 
 update();
 
