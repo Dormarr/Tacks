@@ -150,7 +150,7 @@ canvas{
 		<div class="widget">
 			<p style="text-align:center" id="tpsLbl">Click to increment.</p>
 
-			<label id="lbl">0</label>
+			<label id="tacksLbl">0</label>
 			<br>
 			<button id="btn">Boop</button>
 		</div>
@@ -166,7 +166,7 @@ canvas{
 						<label class="small">+0.25 per click</label> <br>
 						<label class="small">Cost: 20</label>
 						<br>
-						<label class="small">Owned:<label class="small" id="fingerLbl">0</label></label>
+						<label class="small">Owned:<label class="small" id="fingerAmountLbl">0</label></label>
 					</div>
 				</div>
 			</div>
@@ -178,7 +178,7 @@ canvas{
 						<label class="small">+0.4 per second</label><br>
 						<label class="small">Cost: 100</label>
 						<br>
-						<label class="small">Owned:<label class="small" id="workerLbl">0</label></label>
+						<label class="small">Owned:<label class="small" id="workerAmountLbl">0</label></label>
 					</div>
 				</div>
 			</div>
@@ -197,6 +197,7 @@ canvas{
 		<h2>Preferences</h2>
 		<button id="toggleDark">Toggle Theme</button><br>
 		<button id="saveGame">Save</button>
+		<button id="newGame">New</button>
 	</div>
 	<div id="notificationContainer" style="position: absolute; z-index: -1; display: flex; bottom: 80px; text-align: center; align-items: center; width: 99%; flex-direction: column-reverse;">
 	</div>
@@ -250,8 +251,8 @@ const saveData = {
 	version: "1.0.0",
 	resources: {
 		tacks: DATA.tacks,
-		fingers: DATA.fingerAmount,
-		workers: DATA.workerAmount,
+		fingerAmount: DATA.fingerAmount,
+		workerAmount: DATA.workerAmount,
 		playedTime: DATA.playedTime
 	},
 	//add whatever else.
@@ -267,41 +268,114 @@ const tpsLbl = document.getElementById("tpsLbl");
 let upTime = 0;
 let startTime = Date.now();
 
-const upTimeLbl = document.getElementById("upTimeLbl");
-const dateTimeLbl = document.getElementById("dateTimeLbl");
-const playedTimeLbl = document.getElementById("playedTimeLbl");
+// const upTimeLbl = document.getElementById("upTimeLbl");
+// const dateTimeLbl = document.getElementById("dateTimeLbl");
+// const playedTimeLbl = document.getElementById("playedTimeLbl");
 const notifCont = document.getElementById("notificationContainer");
+
+const updateLabel = {
+	tacks: (val) => { document.getElementById("tacksLbl").textContent = val; },
+	fingerAmount: (val) => { document.getElementById("fingerAmountLbl").textContent = val; },
+	workerAmount: (val) => { document.getElementById("workerAmountLbl").textContent = val; },
+	// Add more as needed...
+};
 
 // #region Save Logic
 
-function saveGame(autosave){
-	localStorage.setItem("tacksSave", JSON.stringify(DATA));
-	if(!autosave) printNotification("Saved Game", COLOURS.green);
+function newGame() {
+	// Clear the saved data
+	localStorage.removeItem("tacksSave");
+	loadGame();
+	refresh();
+
+	// Optional: notify the player
+	printNotification("New Game Started", COLOURS.green);
 }
 
-function autosaveGame(){
+
+
+const FIXED_KEY = "tackstack-key123"; // Shared secret
+const FIXED_SALT = new TextEncoder().encode("tackstack-salt");
+
+// Derive a persistent key using PBKDF2
+async function getKey() {
+	if (!window.encryptionKey) {
+		const keyMaterial = await crypto.subtle.importKey(
+			"raw",
+			new TextEncoder().encode(FIXED_KEY),
+			{ name: "PBKDF2" },
+			false,
+			["deriveKey"]
+		);
+
+		window.encryptionKey = await crypto.subtle.deriveKey(
+			{
+				name: "PBKDF2",
+				salt: FIXED_SALT,
+				iterations: 100000,
+				hash: "SHA-256"
+			},
+			keyMaterial,
+			{ name: "AES-GCM", length: 256 },
+			false,
+			["encrypt", "decrypt"]
+		);
+	}
+	return window.encryptionKey;
+}
+
+async function saveGame(autosave) {
+	const key = await getKey();
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const encoded = new TextEncoder().encode(JSON.stringify(DATA));
+	const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+
+	const encryptedData = {
+		iv: Array.from(iv),
+		cipherText: Array.from(new Uint8Array(encrypted))
+	};
+
+	localStorage.setItem("tacksSave", JSON.stringify(encryptedData));
+
+	if (!autosave) printNotification("Saved Game", COLOURS.green);
+}
+
+function autosaveGame() {
 	saveGame(true);
 	printNotification("Autosaved", COLOURS.green, 2000);
 }
 
-function loadGame(){
-	const saveData = localStorage.getItem("tacksSave");
-	if(saveData){
-		let parsed = JSON.parse(saveData);
+async function loadGame() {
+	const raw = localStorage.getItem("tacksSave");
+	if (!raw) return;
+
+	try {
+		const encryptedData = JSON.parse(raw);
+		const key = await getKey();
+		const iv = new Uint8Array(encryptedData.iv);
+		const cipherText = new Uint8Array(encryptedData.cipherText);
+
+		const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipherText);
+		const json = new TextDecoder().decode(decrypted);
+		const parsed = JSON.parse(json);
+
 		DATA.tacks = parsed.tacks || 0;
 		DATA.fingerAmount = parsed.fingerAmount || 0;
 		DATA.workerAmount = parsed.workerAmount || 0;
 		DATA.playedTime = parsed.playedTime || 0;
-	}else{
-		return;
+
+		refresh();
+		printNotification("Game Loaded", COLOURS.green);
+	} catch (err) {
+		console.error("Decryption failed:", err);
 	}
 }
+
 
 // #endregion
 
 
 loadGame();
-init();
 automation();
 
 // #region Game Logic
@@ -311,12 +385,11 @@ increment((DATA.fingerAmount * AutoValue.FINGER) + 1);
 });
 
 document.getElementById("fingerBtn").addEventListener("click", context=>{
-if(Buy("finger", 1, AutoPrice.FINGER)) DATA.fingerAmount++;
+	buy("finger", 1, AutoPrice.FINGER)
 });
 
 document.getElementById("workerBtn").addEventListener("click", context=>{
-	if(Buy("worker", 1, AutoPrice.WORKER)) {
-		DATA.workerAmount++;
+	if(buy("worker", 1, AutoPrice.WORKER)) {
 		createGuy();
 	}
 });
@@ -330,14 +403,21 @@ document.getElementById("saveGame").addEventListener("click", function(){
 	saveGame();
 })
 
+document.getElementById("newGame").addEventListener("click", function(){
+	newGame();
+})
+
 setInterval(automation, 1000);
 setInterval(display, FPS);
 setInterval(autosaveGame, 600000);
 
-function init(){
-	incrementSpecific(DATA.workerAmount, "worker");
-	incrementSpecific(DATA.fingerAmount, "finger");
+let guysCount;
 
+function refresh(){
+	setDataField("tacks", DATA.tacks);
+	setDataField("workerAmount", DATA.workerAmount);
+	setDataField("fingerAmount", DATA.fingerAmount);
+	populateGuys(DATA.workerAmount);
 	// Calculate compounding price changes.
 }
 
@@ -345,11 +425,54 @@ function increment(amount){
 	DATA.tacks += amount;
 }
 
-function incrementSpecific(amount, name){
-	var label = document.getElementById(name + "Lbl");
-	currentNo = parseFloat(label.textContent) + amount;
-	label.textContent = Math.floor(currentNo);
+function incrementSpecific(name, amount) {
+	const label = document.getElementById(name + "Lbl");
+
+	if (!label) {
+		console.warn(`Label element not found: ${name}Lbl`);
+		return;
+	}
+
+	let currentVal = parseFloat(label.textContent);
+	if (isNaN(currentVal)) currentVal = 0;
+
+	const newVal = currentVal + amount;
+	label.textContent = Math.floor(newVal);
 }
+
+
+function incrementDataField(fieldName, amount = 1) {
+	if (Object.prototype.hasOwnProperty.call(DATA, fieldName) && typeof DATA[fieldName] === "number") {
+		DATA[fieldName] += amount;
+
+		// Check for a label updater function specific to this field
+		if (typeof updateLabel[fieldName] === "function") {
+			updateLabel[fieldName](DATA[fieldName]);
+		}
+
+		return DATA[fieldName];
+	} else {
+		console.warn(`Invalid field name or non-numeric field: "${fieldName}"`);
+		return null;
+	}
+}
+
+function setDataField(fieldName, amount = 1) {
+	if (Object.prototype.hasOwnProperty.call(DATA, fieldName) && typeof DATA[fieldName] === "number") {
+		DATA[fieldName] = amount;
+
+		// Check for a label updater function specific to this field
+		if (typeof updateLabel[fieldName] === "function") {
+			updateLabel[fieldName](DATA[fieldName]);
+		}
+
+		return DATA[fieldName];
+	} else {
+		console.warn(`Invalid field name or non-numeric field: "${fieldName}"`);
+		return null;
+	}
+}
+
 
 function decrement(amount){
 	DATA.tacks -= amount;
@@ -359,10 +482,10 @@ function canAfford(price){
 	return true ? price <= parseInt(DATA.tacks, 10) : false;
 }
 
-function Buy(type, amount, price){
+function buy(type, amount, price){
 	if(canAfford(price)){
 		decrement(price);
-		incrementSpecific(amount, type);
+		incrementDataField(type + "Amount", amount);
 		printNotification("Bought: " + amount + "x " + type, COLOURS.text, 2000);
 		return true;
 	}
@@ -388,7 +511,7 @@ function automation(){
 // Called 24 times per second
 function display(){
 	increment(TPS / FPS);
-	lbl.textContent = numberWithCommas(Math.floor(DATA.tacks));
+	tacksLbl.textContent = numberWithCommas(Math.floor(DATA.tacks));
 }
 
 function calculateTPS(){
@@ -550,6 +673,12 @@ setInterval(renderFrame, FPS);
 
 // #endregion
 
+
+// This is where the work is. Refactor to make it more modular, and add in the hand logic.
+// Use sin wave function to get a poking effect.
+
+// Also improvements to the guys, including variants.
+
 // #region Guys
 const workerCanvas = document.getElementById("workerCanvas");
 const ctx = workerCanvas.getContext("2d");
@@ -557,10 +686,31 @@ workerCanvas.width = window.innerWidth - 80;
 workerCanvas.height = 200;
 
 const CHAR_GUY = [
+[
   "  o  ",
-  " /|\\ ",
+  " /#\\ ",
   " / \\ "
-];
+],
+[
+  "  o  ",
+  " <#v ",
+  " / \\ "
+],
+[
+  "  o  ",
+  " <T> ",
+  " / \\ "
+],
+[
+  "  o  ",
+  " /#> ",
+  " / \\ "
+],
+[
+  "  o  ",
+  " /X\\ ",
+  " / \\ "
+]];
 
 const CHAR_FINGER = [
    "   ^",
@@ -581,100 +731,102 @@ const BASE_FONT_SIZE = 12;
 const MAX_FONT_SIZE = 16;
 const SCALE_RADIUS = 100;
 
-let guysCount = DATA.workerAmount;
-
-// Initialize guys with fixed home positions and unique IDs
-for (let i = 0; i < guysCount; i++) {
-	guys.push({
-		homeX: Math.random() * (workerCanvas.width - 80),
-		homeY: Math.random() * (workerCanvas.height - 20),
-		id: i
-	});
-}
-
-	workerCanvas.addEventListener("mousemove", e => {
-		const rect = workerCanvas.getBoundingClientRect(); // get canvas position & size
-		mouse.x = e.clientX - rect.left; // mouse x relative to canvas
-		mouse.y = e.clientY - rect.top;  // mouse y relative to canvas
-	});
-
-	// canvas.addEventListener("click", () => {
-	//   guysCount++;
-	//   guys.push({
-	//     homeX: mouse.x,
-	//     homeY: mouse.y,
-	//     id: guysCount
-	//   });
-	//   console.log(`Added guy #${guysCount} at (${mouse.x}, ${mouse.y})`);
-	// });
-
-	function createGuy(x, y){
-		guysCount++;
+function populateGuys(guysCount){
+	// Initialize guys with fixed home positions and unique IDs
+	for (let i = 0; i < guysCount; i++) {
 		guys.push({
 			homeX: Math.random() * (workerCanvas.width - 80),
 			homeY: Math.random() * (workerCanvas.height - 20),
-			id: guysCount
+			id: i,
+			sprite: CHAR_GUY[Math.floor(Math.random() * CHAR_GUY.length)]
 		});
 	}
+}
 
-	function drawGuy(x, y, scale) {
-		const fontSize = BASE_FONT_SIZE * scale;
-		const lineHeight = fontSize;
+workerCanvas.addEventListener("mousemove", e => {
+	const rect = workerCanvas.getBoundingClientRect(); // get canvas position & size
+	mouse.x = e.clientX - rect.left; // mouse x relative to canvas
+	mouse.y = e.clientY - rect.top;  // mouse y relative to canvas
+});
 
-		ctx.font = fontSize + "px monospace";
-		ctx.textBaseline = "top";
-		ctx.fillStyle = getColor(COLOURS.ascii);
-		for (let i = 0; i < CHAR_GUY.length; i++) {
-			ctx.fillText(CHAR_GUY[i], x, y + i * lineHeight);
-		}
+// canvas.addEventListener("click", () => {
+//   guysCount++;
+//   guys.push({
+//     homeX: mouse.x,
+//     homeY: mouse.y,
+//     id: guysCount
+//   });
+//   console.log(`Added guy #${guysCount} at (${mouse.x}, ${mouse.y})`);
+// });
+
+function createGuy(x, y){
+	guysCount++;
+	guys.push({
+		homeX: Math.random() * (workerCanvas.width - 80),
+		homeY: Math.random() * (workerCanvas.height - 20),
+		id: guysCount,
+		sprite: CHAR_GUY[Math.floor(Math.random() * CHAR_GUY.length)]
+	});
+}
+
+function drawGuy(guySprite, x, y, scale) {
+	const fontSize = BASE_FONT_SIZE * scale;
+	const lineHeight = fontSize;
+
+	ctx.font = fontSize + "px monospace";
+	ctx.textBaseline = "top";
+	ctx.fillStyle = getColor(COLOURS.ascii);
+	for (let i = 0; i < guySprite.length; i++) {
+		ctx.fillText(guySprite[i], x, y + i * lineHeight);
+	}
+}
+
+let time = 0;
+
+function update() {
+ctx.clearRect(0, 0, workerCanvas.width, workerCanvas.height);
+time += WIGGLE_SPEED;
+
+
+guys.forEach(g => {
+	// Calculate distance to mouse
+	const dx = g.homeX - mouse.x;
+	const dy = g.homeY - mouse.y;
+	const dist = Math.sqrt(dx * dx + dy * dy);
+
+	// Perlin noise wiggle
+	const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
+	const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
+	const wiggleX = noiseX * WIGGLE_AMPLITUDE;
+	const wiggleY = noiseY * WIGGLE_AMPLITUDE;
+
+	let offsetX = wiggleX;
+	let offsetY = wiggleY;
+
+	// If within repulsion radius, push away from mouse
+	if (dist < REPULSION_RADIUS && dist > 0.01) {
+	const nx = dx / dist;
+	const ny = dy / dist;
+	const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
+	offsetX += nx * repulseStrength;
+	offsetY += ny * repulseStrength;
 	}
 
-	let time = 0;
+	let scale = 1;
+	if(dist < SCALE_RADIUS){
+		const t= 1 - dist / SCALE_RADIUS;
+		scale = 1 + t * ((MAX_FONT_SIZE / BASE_FONT_SIZE) -1);
+	}
 
-	function update() {
-	ctx.clearRect(0, 0, workerCanvas.width, workerCanvas.height);
-	time += WIGGLE_SPEED;
+	const drawX = g.homeX + offsetX;
+	const drawY = g.homeY + offsetY;
+
+	drawGuy(g.sprite, drawX, drawY, scale);
+});
 
 
-	guys.forEach(g => {
-		// Calculate distance to mouse
-		const dx = g.homeX - mouse.x;
-		const dy = g.homeY - mouse.y;
-		const dist = Math.sqrt(dx * dx + dy * dy);
 
-		// Perlin noise wiggle
-		const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
-		const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
-		const wiggleX = noiseX * WIGGLE_AMPLITUDE;
-		const wiggleY = noiseY * WIGGLE_AMPLITUDE;
-
-		let offsetX = wiggleX;
-		let offsetY = wiggleY;
-
-		// If within repulsion radius, push away from mouse
-		if (dist < REPULSION_RADIUS && dist > 0.01) {
-		const nx = dx / dist;
-		const ny = dy / dist;
-		const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
-		offsetX += nx * repulseStrength;
-		offsetY += ny * repulseStrength;
-		}
-
-		let scale = 1;
-		if(dist < SCALE_RADIUS){
-			const t= 1 - dist / SCALE_RADIUS;
-			scale = 1 + t * ((MAX_FONT_SIZE / BASE_FONT_SIZE) -1);
-		}
-
-		const drawX = g.homeX + offsetX;
-		const drawY = g.homeY + offsetY;
-
-		drawGuy(drawX, drawY, scale);
-	});
-
-	
-	
-	requestAnimationFrame(update);
+requestAnimationFrame(update);
 }
 
 // #endregion
