@@ -2,14 +2,14 @@
 <html lang="en-UK">
 <head>
 	<meta charset="utf-8"/>
-	<title>Tacks</title>
+	<title id="title">Tacks</title>
 	<meta name="viewport" content="width=device-width"/>
 <style>
 :root{
 	--white: #171717;
 	--black: #f5f1ec;
 	--whiteAccent: #DDD;
-	--ascii: #f5f1ec;
+	--ascii: #E1D8C1;
 	--feature: coral;
 }
 .light{
@@ -23,22 +23,28 @@
 	--white: #171717;
 	--black: #f5f1ec;
 	--whiteAccent: #DDD;
-	--ascii: #f5f1ec;
+	--ascii: #E1D8C1;
 	--feature: coral;
 }
 body{
-	width: 100%;
+	width: 100vw;
 	text-align: center;
-	align-content: center;
 	background-color: var(--white);
 	color: var(--black);
 	font-family:monospace;
 	margin: 0px;
-	overflow: hidden;
+	min-height: 100vh;
+	overflow-x: hidden;
+	overflow-y: scroll;
 }
 .dark-mode{
 	background-color: var(--black);
 	color: var(--white);
+}
+p.tps{
+	font-style: italic;
+	font-size: 14px;
+	margin: 0px;
 }
 h1 {
 	text-align: center;
@@ -80,15 +86,15 @@ label.small{
 	padding: 2px;
 }
 footer {
-	position: fixed;
-	left: 0;
-	bottom: 0;
+	position: relative;
+	height: 100px;
 	width: 100%;
 	text-align: center;
 	align-content: center;
+	z-index: 10;
 }
 div.widget{
-	background-color: var(--white);
+	
 	border: solid 1px var(--black);
 	min-width: 250px;
 	width: fit-content;
@@ -96,14 +102,17 @@ div.widget{
 	margin: 12px;
 	border-radius: 4px;
 	text-align: center;
+	position: relative;
+	
+	&.buy{
+		top: -180px;
+	}
 }
 #ascii{
-	max-width: 100vw;
-	min-width: 100vw;
+	width: 100vw;
 	overflow-x: hidden;
-	position: absolute;
-	top: -20px;
-	left: 0;
+	position: relative;
+	margin: 0px;
 	color: var(--ascii);
 }
 .notification{
@@ -113,6 +122,7 @@ div.widget{
 	transition-duration: 0.2s;
 	z-index: -1;
 	width: fit-content;
+	pointer-events: none;
 }
 .notification.show{
 	opacity: 0.9;
@@ -121,47 +131,98 @@ div.widget{
 	opacity: 0;
 }
 .slice{
-	width: 100vw;
-	height: fit-content;
-	padding: 12px;
-	align-items: center;
-	align-content: center;
+	width: 100%;
+	height: 201px;
 	display: flex;
+	align-items: center;
 	flex-direction: column;
 }
 canvas{
 	height: 200px;
 	width: 100vw;
 }
+div.line{
+	width: 100%;
+	height: 1px;
+	background-color: var(--ascii);
+}
+.marquee-text {
+  overflow: clip;
+}
+
+.marquee-text-track {
+  display: flex;
+  padding-left: 256px;
+  gap: 256px;
+  width: max-content;
+  animation: marquee-move-text var(--speed, 17s) linear infinite var(
+      --direction,
+      forwards
+    );
+}
+
+.marquee-text p {
+  font-size: 16px;
+  margin: 0px;
+  padding-left: 256px;
+}
+
+@keyframes marquee-move-text {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+
+
 </style>
 </head>
 <! ========================================================================= >
 <body>
-	<pre id="ascii" style="z-index: -1;"></pre>
-	<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-		<div style="background-color: var(--white); z-index: 2; display: flex; flex-direction: column; align-items: center; border: solid 1px var(--black);
-					width: fit-content; padding-left: 80px; padding-right: 80px; padding-top: 16px; padding-bottom: 16px;; margin-top: 64px; align-content: center;">
-			<h1 class="title">Tacks</h1>
-			<p style="color: var(--black); margin-top: 0px;">A Lesser Paperclips</p>
-		</div>
-		
-	</div>
-	<div style="display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 72px">
-		<div class="widget">
-			<p style="text-align:center" id="tpsLbl">Click to increment.</p>
+	<div style="height: 290px">
+		<pre id="ascii" style="z-index: -1;"></pre>
+		<div class="line"></div>
+		<div class="marquee-text">
+		<div class="marquee-text-track">
+			<p>This is a work in progress, be gentle.</p>
+			<p>This is a work in progress, be gentle.</p>
+			<p>This is a work in progress, be gentle.</p>
+			<p>This is a work in progress, be gentle.</p>
+			<p aria-hidden="true">This is a work in progress, be gentle.</p>
+			<p aria-hidden="true">This is a work in progress, be gentle.</p>
+			<p aria-hidden="true">This is a work in progress, be gentle.</p>
+			<p aria-hidden="true">This is a work in progress, be gentle.</p>
 
-			<label id="tacksLbl">0</label>
-			<br>
-			<button id="btn">Boop</button>
+		</div>
+		</div>
+		<div style="display: flex; flex-direction: column; align-items: center; width: 100%">
+			<div class="widget buy">
+				<h1 class="title">Tacks</h1>
+				<p style="color: var(--black); margin-top: 0px;">A Lesser Paperclips</p>
+				<br>
+				<p class="tps" style="text-align:center" id="tpsLbl">Click to increment.</p>
+				<label id="tacksLbl">0</label>
+				<br>
+				<button id="btn" style="margin-top: 24px; width: 128px">Boop</button>
+			</div>
 		</div>
 	</div>
+	
+	<div class="line"></div>
+	<div id="tackSlice" class="slice">
+		<canvas id="tackCanvas"></canvas>
+	</div>
+	<div class="line"></div>
+	
 	<h2> Upgrades & Automation</h2>
-	<div style="display: flex; flex-direction: column; align-items: center; width: 100%; gap: 0px;">
-		<div style="width: fit-content">
+	
+	<div style="display: flex; flex-direction: column; width: 100%">
+		<div style="width: 100vw; display: flex; max-width: 100vw; flex-direction: column">
+			<div class="line"></div>
 			<div id="pointerSlice" class="slice">
-				<canvas id="pointerCanvas" style="height: 200px; width: 100vw"></canvas>
-				<div class="widget" style="margin-top: -160px;">
-					<button id="pointerBtn">Buy Extra pointer</button>
+				<canvas id="pointerCanvas"></canvas>
+				<div class="widget buy">
+					<button id="pointerBtn">Buy Extra Finger</button>
 					<div>
 						<label class="small">+0.25 per click</label> <br>
 						<label class="small">Cost: 20</label>
@@ -170,10 +231,10 @@ canvas{
 					</div>
 				</div>
 			</div>
-			<div style="width: 100% - 64px; height: 1px; margin-top: 16px; background-color: var(--ascii); margin-left: 32px; margin-right: 32px;"></div>
+			<div class="line"></div>
 			<div id="workerSlice" class="slice">
-				<canvas id="workerCanvas" style="height: 200px; width: 100vw"></canvas>
-				<div class="widget" style="margin-top: -160px">
+				<canvas id="workerCanvas"></canvas>
+				<div class="widget buy">
 					<button id="workerBtn">Buy Worker</button>
 					<div>
 						<label class="small">+0.4 per second</label><br>
@@ -183,9 +244,45 @@ canvas{
 					</div>
 				</div>
 			</div>
+			<div class="line"></div>
+			<div id="dropperSlice" class="slice">
+				<canvas id="dropperCanvas"></canvas>
+				<div class="widget buy">
+					<button id="workerBtn">Buy Dropshipper</button>
+					<div>
+						<label class="small">+100 per minute (randomly)</label><br>
+						<label class="small">Cost: 1000</label>
+						<br>
+						<label class="small">Owned:<label class="small" id="dropperAmountLbl">0</label></label>
+					</div>
+				</div>
+			</div>
+			<div class="line"></div>
+			<!-- TEMPLATE ==================================================================== -->
+			<div id="templateSlice" class="slice">
+				<canvas id="templateCanvas"></canvas>
+				<div class="widget buy">
+					<button id="templateBtn">Buy Template</button>
+					<div>
+						<label class="small">+X per Y</label><br>
+						<label class="small">Cost: Z</label>
+						<br>
+						<label class="small">Owned:<label class="small" id="templateAmountLbl">0</label></label>
+					</div>
+				</div>
+			</div>
+			<div class="line"></div>
+			<!-- TEMPLATE ==================================================================== -->
 		</div>
 	</div>
-	<div style="position: absolute; right: 20px; bottom: 80px; text-align: right;">
+	<div style="align-content: left; z-index: 1; position: fixed; bottom: 16px; left: 16px;">
+		<h2>Preferences</h2>
+		<button id="toggleDark">Toggle Theme</button><br>
+		<button id="saveGame">Save</button>
+		<button id="newGame">New</button>
+		<button id="cheat">Cheat</button>
+	</div>
+	<div style="text-align: right; position: fixed; right: 16px; bottom: 16px;">
 		<label class="small"; id="dateTimeLbl">DateTime</label>
 		<br>
 		<label class="small"; id="upTimeLbl">UpTime</label>
@@ -194,24 +291,25 @@ canvas{
 		<br>
 		<p>Add more debug stuff.</p>
 	</div>
-	<div style="position:absolute; bottom: 40px; left: 80px;">
-		<h2>Preferences</h2>
-		<button id="toggleDark">Toggle Theme</button><br>
-		<button id="saveGame">Save</button>
-		<button id="newGame">New</button>
+	<div id="notificationContainer" style="pointer-events: none; position: fixed; z-index: -1; display: flex; bottom: 80px; text-align: center; align-items: center; width: 99%; flex-direction: column-reverse;">
 	</div>
-	<div id="notificationContainer" style="position: absolute; z-index: -1; display: flex; bottom: 80px; text-align: center; align-items: center; width: 99%; flex-direction: column-reverse;">
-	</div>
-<footer>
+<footer style="pointer-events: none; padding-bottom: 16px;">
 	© Ryan Appleyard MMXXV
 </footer>
 
 
 </body>
-
-<! ========================================================================= >
-
 <script>
+
+/*=========================================================================
+
+I have a lot of ideas for this, but I need to make it sustainable first.
+I need to break up a lot of the methods into more managable chunks and centralise a lot more of the information.
+Look at the cookie cicker code because it's very accessibly written.
+
+The regions are good, but I still need to make it make a bit more sense, this has gotten away from me very quickly.
+
+=========================================================================*/
 
 // #region Data
 
@@ -219,7 +317,8 @@ const DATA = {
 	tacks: 0,
 	pointerAmount: 0,
 	workerAmount: 0,
-	playedTime: 0
+	playedTime: 0,
+	preferredTheme: 0
 }
 
 // Light and Dark refer to the themes they are paired with.
@@ -230,21 +329,21 @@ const COLOURS = {
 	},
 	red: "#FC5130",
 	text: {
-		light: "#111111",
-		dark: "#FFFFFF"
+		light: "#121212",
+		dark: "#F7F7F7"
 	},
 	ascii: {
 		light: "#5c5b59",
-		dark: "#f5f1ec"
+		dark: "#B1A688"
 	}
 }
 let AutoValue = {
-	pointer: 0.25,
+	POINTER: 0.25,
 	WORKER: 0.4
 };
 
 let AutoPrice = {
-	pointer: 20,
+	POINTER: 20,
 	WORKER: 100
 }
 
@@ -273,6 +372,7 @@ let startTime = Date.now();
 // const dateTimeLbl = document.getElementById("dateTimeLbl");
 // const playedTimeLbl = document.getElementById("playedTimeLbl");
 const notificationContainer = document.getElementById("notificationContainer");
+const title = document.getElementById("title");
 
 const updateLabel = {
 	tacks: (val) => { document.getElementById("tacksLbl").textContent = val; },
@@ -283,10 +383,10 @@ const updateLabel = {
 
 // #region Save Logic
 
-function newGame() {
+async function newGame() {
 	// Clear the saved data
 	localStorage.removeItem("tacksSave");
-	loadGame();
+	await loadGame(true);
 	refresh();
 
 	// Optional: notify the player
@@ -346,7 +446,19 @@ function autosaveGame() {
 	printNotification("Autosaved", COLOURS.green, 2000);
 }
 
-async function loadGame() {
+async function loadGame(newGame) {
+
+	if(newGame){
+		DATA.tacks =  0;
+		DATA.pointerAmount = 0;
+		DATA.workerAmount = 0;
+		DATA.playedTime = 0;
+
+		refresh();
+		printNotification("New Game!", COLOURS.green);
+		return;
+	}
+
 	const raw = localStorage.getItem("tacksSave");
 	if (!raw) return;
 
@@ -395,7 +507,7 @@ document.getElementById("pointerBtn").addEventListener("click", context=>{
 document.getElementById("workerBtn").addEventListener("click", context=>{
 	if(canAfford(AutoPrice.WORKER)){
 		buy("worker", 1, AutoPrice.WORKER);
-		createGuy();
+		createWorker();
 	}
 });
 
@@ -412,6 +524,14 @@ document.getElementById("newGame").addEventListener("click", function(){
 	newGame();
 })
 
+document.getElementById("cheat").addEventListener("click", function(){
+	incrementDataField("tacks", 999999);
+	buy("worker", 10, AutoPrice.WORKER);
+	createWorker(10);
+	buy("pointer", 10, AutoPrice.POINTER);
+	createPointer(10);
+});
+
 setInterval(automation, 1000);
 setInterval(display, FPS);
 setInterval(autosaveGame, 600000);
@@ -420,9 +540,14 @@ function refresh(){
 	setDataField("tacks", DATA.tacks);
 	setDataField("workerAmount", DATA.workerAmount);
 	setDataField("pointerAmount", DATA.pointerAmount);
-	populateGuys(DATA.workerAmount);
-	populatePointers(DATA.pointerAmount);
+	repopulate();
 	// Calculate compounding price changes.
+	
+}
+
+function repopulate(){
+	populateGuys();
+	populatePointers();
 }
 
 function increment(amount){
@@ -496,13 +621,13 @@ function buy(type, amount, price){
 	else{
 		printNotification("Can't afford another " + type, COLOURS.red, 2000);
 		return false;
-	}		
+	}
 }
 
 // Called once per second
 function automation(){
 	calculateTPS();
-	tpsLbl.textContent = "Tacks p/s: " + TPS.toFixed(2);
+	tpsLbl.textContent = TPS.toFixed(2) + " tps";
 	dateTimeLbl.textContent = new Date().toLocaleString();
 	upTime++;
 	var upTimeElapsed = convertTime(upTime);
@@ -510,6 +635,8 @@ function automation(){
 	DATA.playedTime++;
 	var playedTimeElapsed = convertTime(DATA.playedTime)
 	playedTimeLbl.textContent = "Played Time: " + playedTimeElapsed;
+
+	title.textContent = DATA.tacks.toFixed(0) + " Tacks!";
 }
 
 // Called 24 times per second
@@ -520,7 +647,112 @@ function display(){
 
 function calculateTPS(){
 	TPS = AutoValue.WORKER * DATA.workerAmount;
+	// Add automation elements to this ------------------------------------------------------------------- !!
 }
+// #endregion
+
+// #region Utility
+
+function getExclusion(canvas){
+	return {
+    x: canvas.width / 2 - 175,
+    y: canvas.height / 2 - 90,
+    width: 300,
+    height: 150
+	};
+}
+
+function createPointer(amount = 1){
+	createSprite(pointerCount, CHAR_POINTER, pointerCanvas, pointers, amount);
+}
+
+function createWorker(amount = 1){
+	createSprite(workerCount, CHAR_GUY, workerCanvas, workers, amount);
+}
+
+function createSprite(count, sprite, canvas, collection, amount){
+	count += amount
+	populateSprite(count, sprite, canvas, collection);
+}
+
+function populateSprite(count, sprite, canvas, collection){
+	const exclusion = getExclusion(canvas);
+
+	for (let i = 0; i < count; i++) {
+		const {x: X, y:Y} = getValidPosition(canvas, exclusion)
+		collection.push({
+			homeX: X,
+			homeY: Y,
+			id: i,
+			sprite: sprite[Math.floor(Math.random() * sprite.length)]
+		});
+	}
+}
+
+function getValidPosition(canvas, exclusion){
+	let x, y;
+    do {
+        x = Math.random() * (canvas.width - 80);
+        y = Math.random() * (canvas.height - 20);
+    } while (
+        x > exclusion.x &&
+        x < exclusion.x + exclusion.width &&
+        y > exclusion.y &&
+        y < exclusion.y + exclusion.height
+    );
+    return { x, y };
+}
+
+function getValidPositionX(canvas, exclusion){
+	let both = getValidPosition(canvas, exclusion);
+	return both[0];
+}
+
+function wiggle(g, mouse, yMove){
+	
+	const dx = g.homeX - mouse.x;
+	const dy = g.homeY - mouse.y;
+	const dist = Math.sqrt(dx * dx + dy * dy);
+
+	// Perlin noise wiggle
+	const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
+	const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
+	const wiggleX = noiseX * WIGGLE_AMPLITUDE;
+	const wiggleY = noiseY * WIGGLE_AMPLITUDE;
+
+	let sinY = sinWave(wiggleY * yMove, 10);
+
+	let offsetX = wiggleX;
+	let offsetY = wiggleY + sinY;
+
+	// If within repulsion radius, push away from mouse
+	if (dist < REPULSION_RADIUS && dist > 0.01) {
+	const nx = dx / dist;
+	const ny = dy / dist;
+	const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
+	offsetX += nx * repulseStrength;
+	offsetY += ny * repulseStrength;
+	}
+
+	let scale = 1;
+	if(dist < SCALE_RADIUS){
+		const t= 1 - dist / SCALE_RADIUS;
+		scale = 1 + t * ((W_MAX_FONT_SIZE / W_BASE_FONT_SIZE) -1);
+	}
+
+	const drawX = g.homeX + offsetX;
+	const drawY = g.homeY + offsetY;
+	
+
+	const drawVector = [drawX, drawY, scale, sinY];
+
+	return drawVector;
+}
+
+function sinWave(radian, radius){
+	return Math.sin(radian) * radius;
+}
+
 // #endregion
 
 // #region Print & Display
@@ -565,17 +797,19 @@ function numberWithCommas(x) {
     return x;
 }
 
-window.addEventListener("resize", resizeCanvas);
-function resizeCanvas(){
-	workerCanvas.width = window.innerWidth - 80;
-	pointerCanvas.width = window.innerWidth - 80;
+window.addEventListener("resize", resizeWindow);
 
-	workers.forEach(g =>{
-		g.homeX = Math.random() * workerCanvas.width;
-	})
+function resizeWindow(){
+	resizeCanvas(workerCanvas, workers);
+	resizeCanvas(pointerCanvas, pointers);
+}
 
-	pointers.forEach(p =>{
-		p.homeX = Math.random() * pointerCanvas.width;
+function resizeCanvas(canvas, collection){
+	canvas.width = window.innerWidth - 80;
+	const exclusion = getExclusion(canvas);
+
+	collection.forEach(g =>{
+		g.homeX = getValidPositionX(canvas, exclusion);
 	})
 }
 
@@ -691,10 +925,21 @@ const WIGGLE_SPEED = 0.01;  // speed of wiggle
 const REPULSION_RADIUS = 450; // smaller radius so repulsion looks nicer
 const REPULSION_FORCE = 2; // how strongly guys get pushed away
 
-const BASE_FONT_SIZE = 12;
-const MAX_FONT_SIZE = 16;
+const P_BASE_FONT_SIZE = 8;
+const W_BASE_FONT_SIZE = 12;
+const W_MAX_FONT_SIZE = 16;
+const P_MAX_FONT_SIZE = 13;
 const SCALE_RADIUS = 100;
+const ROT_RADIUS = 100;
 
+
+function populateGuys(){
+	populateSprite(DATA.workerAmount, CHAR_GUY, workerCanvas, workers);
+}
+
+function populatePointers(){
+	populateSprite(DATA.pointerAmount, CHAR_POINTER, pointerCanvas, pointers);
+}
 
 // #endregion
 
@@ -732,21 +977,9 @@ const CHAR_GUY = [
 	" / \\ "
 ]];
 
-let workerCount;
+let workerCount = 0;
 const workerMouse = { x: 0, y: 0 };
 const workers = [];
-
-function populateGuys(guysCount){
-	// Initialize guys with fixed home positions and unique IDs
-	for (let i = 0; i < guysCount; i++) {
-		workers.push({
-			homeX: Math.random() * (workerCanvas.width - 80),
-			homeY: Math.random() * (workerCanvas.height - 20),
-			id: i,
-			sprite: CHAR_GUY[Math.floor(Math.random() * CHAR_GUY.length)]
-		});
-	}
-}
 
 workerCanvas.addEventListener("mousemove", e => {
 	const rect = workerCanvas.getBoundingClientRect(); // get canvas position & size
@@ -754,28 +987,8 @@ workerCanvas.addEventListener("mousemove", e => {
 	workerMouse.y = e.clientY - rect.top;  // mouse y relative to canvas
 });
 
-// canvas.addEventListener("click", () => {
-//   guysCount++;
-//   guys.push({
-//     homeX: mouse.x,
-//     homeY: mouse.y,
-//     id: guysCount
-//   });
-//   console.log(`Added guy #${guysCount} at (${mouse.x}, ${mouse.y})`);
-// });
-
-function createGuy(){
-	workerCount++;
-	workers.push({
-		homeX: Math.random() * (workerCanvas.width - 80),
-		homeY: Math.random() * (workerCanvas.height - 20),
-		id: workerCount,
-		sprite: CHAR_GUY[Math.floor(Math.random() * CHAR_GUY.length)]
-	});
-}
-
 function drawGuy(guySprite, x, y, scale) {
-	const fontSize = BASE_FONT_SIZE * scale;
+	const fontSize = W_BASE_FONT_SIZE * scale;
 	const lineHeight = fontSize;
 
 	workerCtx.font = fontSize + "px monospace";
@@ -792,41 +1005,9 @@ function updateWorker() {
 	workerCtx.clearRect(0, 0, workerCanvas.width, workerCanvas.height);
 	time += WIGGLE_SPEED;
 
-
 	workers.forEach(g => {
-		// Calculate distance to mouse
-		const dx = g.homeX - workerMouse.x;
-		const dy = g.homeY - workerMouse.y;
-		const dist = Math.sqrt(dx * dx + dy * dy);
-
-		// Perlin noise wiggle
-		const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
-		const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
-		const wiggleX = noiseX * WIGGLE_AMPLITUDE;
-		const wiggleY = noiseY * WIGGLE_AMPLITUDE;
-
-		let offsetX = wiggleX;
-		let offsetY = wiggleY;
-
-		// If within repulsion radius, push away from mouse
-		if (dist < REPULSION_RADIUS && dist > 0.01) {
-		const nx = dx / dist;
-		const ny = dy / dist;
-		const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
-		offsetX += nx * repulseStrength;
-		offsetY += ny * repulseStrength;
-		}
-
-		let scale = 1;
-		if(dist < SCALE_RADIUS){
-			const t= 1 - dist / SCALE_RADIUS;
-			scale = 1 + t * ((MAX_FONT_SIZE / BASE_FONT_SIZE) -1);
-		}
-
-		const drawX = g.homeX + offsetX;
-		const drawY = g.homeY + offsetY;
-
-		drawGuy(g.sprite, drawX, drawY, scale);
+		const v = wiggle(g, workerMouse, 0);
+		drawGuy(g.sprite, v[0], v[1], v[2]);
 	});
 
 	requestAnimationFrame(updateWorker);
@@ -847,32 +1028,9 @@ const CHAR_POINTER = [[
 	"\\__|) "
 ]];
 
-let pointerCount;
+let pointerCount = 0;
 const pointerMouse = { x: 0, y: 0 }
 const pointers = [];
-
-
-function populatePointers(pointerCount){
-	for (let i = 0; i < pointerCount; i++) {
-		pointers.push({
-			homeX: Math.random() * (pointerCanvas.width - 80),
-			homeY: Math.random() * (pointerCanvas.height - 20),
-			id: i,
-			sprite: CHAR_POINTER[Math.floor(Math.random() * CHAR_POINTER.length)]
-		});
-	}
-}
-
-// pointerCanvas.addEventListener("click", () => {
-//     pointerCount++;
-//     pointers.push({
-//         homeX: pointerMouse.x,
-//         homeY: pointerMouse.y,
-//         id: pointerCount,
-//         sprite: CHAR_POINTER[Math.floor(Math.random() * CHAR_POINTER.length)]
-//     });
-//     console.log(`Added pointer #${pointerCount} at (${pointerMouse.x}, ${pointerMouse.y})`);
-// });
 
 pointerCanvas.addEventListener("mousemove", e => {
     const rect = pointerCanvas.getBoundingClientRect(); // get canvas position & size
@@ -880,21 +1038,11 @@ pointerCanvas.addEventListener("mousemove", e => {
     pointerMouse.y = e.clientY - rect.top;  // mouse y relative to canvas
 });
 
-function createPointer(){
-	pointerCount++;
-	pointers.push({
-		homeX: Math.random() * (pointerCanvas.width - 80),
-		homeY: Math.random() * (pointerCanvas.height - 20),
-		id: pointerCount,
-		sprite: CHAR_POINTER[Math.floor(Math.random() * CHAR_POINTER.length)]
-	});
-}
-
 function drawPointer(pointerSprite, x, y, scale) {
-    const fontSize = BASE_FONT_SIZE * scale;
-    const lineHeight = fontSize;
+    const pointerFontSize = P_BASE_FONT_SIZE * scale;
+    const lineHeight = pointerFontSize;
 
-    ctx2.font = fontSize + "px monospace";
+    ctx2.font = pointerFontSize + "px monospace";
     ctx2.textBaseline = "top";
     ctx2.fillStyle = getColor(COLOURS.ascii);
 
@@ -903,78 +1051,24 @@ function drawPointer(pointerSprite, x, y, scale) {
     }
 }
 
+
+
 function updatePointer() {
     ctx2.clearRect(0, 0, pointerCanvas.width, pointerCanvas.height);
     time += WIGGLE_SPEED;
 
     pointers.forEach(p => {
-        // Calculate distance to mouse
-        const dx = p.homeX - pointerMouse.x;
-        const dy = p.homeY - pointerMouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        // Perlin noise wiggle
-        const noiseX = perlin(time + p.id * 10, 0, 0) * 2 - 1; // [-1, 1]
-        const noiseY = perlin(0, time + p.id * 10, 0) * 2 - 1;
-        const wiggleX = noiseX * WIGGLE_AMPLITUDE;
-        const wiggleY = noiseY * WIGGLE_AMPLITUDE;
-
-        let offsetX = wiggleX;
-        let offsetY = wiggleY;
-
-        // If within repulsion radius, push away from mouse
-        if (dist < REPULSION_RADIUS && dist > 0.01) {
-        const nx = dx / dist;
-        const ny = dy / dist;
-        const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
-        offsetX += nx * repulseStrength;
-        offsetY += ny * repulseStrength;
-        }
-
-        let scale = 1;
-        if(dist < SCALE_RADIUS){
-            const t= 1 - dist / SCALE_RADIUS;
-            scale = 1 + t * ((MAX_FONT_SIZE / BASE_FONT_SIZE) -1);
-        }
-
-        const drawX = p.homeX + offsetX;
-        const drawY = p.homeY + offsetY;
-
-        drawPointer(p.sprite, drawX, drawY, scale);
+		const v = wiggle(p, pointerMouse, 1.2);
+        drawPointer(p.sprite, v[0], v[1], v[2]);
     });
     
     requestAnimationFrame(updatePointer);
 }
 
-// #endregion
-
-
 updatePointer();
 updateWorker();
 
+// #endregion
+
 </script>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
