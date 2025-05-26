@@ -158,20 +158,21 @@ canvas{
 	<h2> Upgrades & Automation</h2>
 	<div style="display: flex; flex-direction: column; align-items: center; width: 100%; gap: 0px;">
 		<div style="width: fit-content">
-			<div id="fingerSlice" class="slice" style="height: 200px; background-color: blue;">
-				<canvas id="fingerCanvas" style="height: 200px; width: 100vw"></canvas>
+			<div id="pointerSlice" class="slice">
+				<canvas id="pointerCanvas" style="height: 200px; width: 100vw"></canvas>
 				<div class="widget" style="margin-top: -160px;">
-					<button id="fingerBtn">Buy Extra Finger</button>
+					<button id="pointerBtn">Buy Extra pointer</button>
 					<div>
 						<label class="small">+0.25 per click</label> <br>
 						<label class="small">Cost: 20</label>
 						<br>
-						<label class="small">Owned:<label class="small" id="fingerAmountLbl">0</label></label>
+						<label class="small">Owned:<label class="small" id="pointerAmountLbl">0</label></label>
 					</div>
 				</div>
 			</div>
+			<div style="width: 100% - 64px; height: 1px; margin-top: 16px; background-color: var(--ascii); margin-left: 32px; margin-right: 32px;"></div>
 			<div id="workerSlice" class="slice">
-				<canvas id="workerCanvas"></canvas>
+				<canvas id="workerCanvas" style="height: 200px; width: 100vw"></canvas>
 				<div class="widget" style="margin-top: -160px">
 					<button id="workerBtn">Buy Worker</button>
 					<div>
@@ -216,7 +217,7 @@ canvas{
 
 const DATA = {
 	tacks: 0,
-	fingerAmount: 0,
+	pointerAmount: 0,
 	workerAmount: 0,
 	playedTime: 0
 }
@@ -238,12 +239,12 @@ const COLOURS = {
 	}
 }
 let AutoValue = {
-	FINGER: 0.25,
+	pointer: 0.25,
 	WORKER: 0.4
 };
 
 let AutoPrice = {
-	FINGER: 20,
+	pointer: 20,
 	WORKER: 100
 }
 
@@ -251,7 +252,7 @@ const saveData = {
 	version: "1.0.0",
 	resources: {
 		tacks: DATA.tacks,
-		fingerAmount: DATA.fingerAmount,
+		pointerAmount: DATA.pointerAmount,
 		workerAmount: DATA.workerAmount,
 		playedTime: DATA.playedTime
 	},
@@ -271,11 +272,11 @@ let startTime = Date.now();
 // const upTimeLbl = document.getElementById("upTimeLbl");
 // const dateTimeLbl = document.getElementById("dateTimeLbl");
 // const playedTimeLbl = document.getElementById("playedTimeLbl");
-const notifCont = document.getElementById("notificationContainer");
+const notificationContainer = document.getElementById("notificationContainer");
 
 const updateLabel = {
 	tacks: (val) => { document.getElementById("tacksLbl").textContent = val; },
-	fingerAmount: (val) => { document.getElementById("fingerAmountLbl").textContent = val; },
+	pointerAmount: (val) => { document.getElementById("pointerAmountLbl").textContent = val; },
 	workerAmount: (val) => { document.getElementById("workerAmountLbl").textContent = val; },
 	// Add more as needed...
 };
@@ -360,7 +361,7 @@ async function loadGame() {
 		const parsed = JSON.parse(json);
 
 		DATA.tacks = parsed.tacks || 0;
-		DATA.fingerAmount = parsed.fingerAmount || 0;
+		DATA.pointerAmount = parsed.pointerAmount || 0;
 		DATA.workerAmount = parsed.workerAmount || 0;
 		DATA.playedTime = parsed.playedTime || 0;
 
@@ -381,15 +382,19 @@ automation();
 // #region Game Logic
 
 document.getElementById("btn").addEventListener("click", context=>{
-increment((DATA.fingerAmount * AutoValue.FINGER) + 1);
+	increment((DATA.pointerAmount * AutoValue.pointer) + 1);
 });
 
-document.getElementById("fingerBtn").addEventListener("click", context=>{
-	buy("finger", 1, AutoPrice.FINGER)
+document.getElementById("pointerBtn").addEventListener("click", context=>{
+	if(canAfford(AutoPrice.pointer)){
+		buy("pointer", 1, AutoPrice.pointer);
+		createPointer();
+	}
 });
 
 document.getElementById("workerBtn").addEventListener("click", context=>{
-	if(buy("worker", 1, AutoPrice.WORKER)) {
+	if(canAfford(AutoPrice.WORKER)){
+		buy("worker", 1, AutoPrice.WORKER);
 		createGuy();
 	}
 });
@@ -411,13 +416,12 @@ setInterval(automation, 1000);
 setInterval(display, FPS);
 setInterval(autosaveGame, 600000);
 
-let guysCount;
-
 function refresh(){
 	setDataField("tacks", DATA.tacks);
 	setDataField("workerAmount", DATA.workerAmount);
-	setDataField("fingerAmount", DATA.fingerAmount);
+	setDataField("pointerAmount", DATA.pointerAmount);
 	populateGuys(DATA.workerAmount);
+	populatePointers(DATA.pointerAmount);
 	// Calculate compounding price changes.
 }
 
@@ -519,10 +523,6 @@ function calculateTPS(){
 }
 // #endregion
 
-// #region Utilities
-
-// #endregion
-
 // #region Print & Display
 
 function convertTime(timeIn){
@@ -539,7 +539,7 @@ function printNotification(message, color, duration = 3000){
 	note.textContent = message;
 	note.style.color = getColor(color);
 
-	notifCont.appendChild(note);
+	notificationContainer.appendChild(note);
 
 	setTimeout(() =>{
 		note.classList.remove("show");
@@ -565,14 +565,19 @@ function numberWithCommas(x) {
     return x;
 }
 
+window.addEventListener("resize", resizeCanvas);
 function resizeCanvas(){
 	workerCanvas.width = window.innerWidth - 80;
+	pointerCanvas.width = window.innerWidth - 80;
 
-	guys.forEach(g =>{
+	workers.forEach(g =>{
 		g.homeX = Math.random() * workerCanvas.width;
 	})
+
+	pointers.forEach(p =>{
+		p.homeX = Math.random() * pointerCanvas.width;
+	})
 }
-window.addEventListener("resize", resizeCanvas);
 
 // #endregion
 
@@ -679,49 +684,8 @@ setInterval(renderFrame, FPS);
 
 // Also improvements to the guys, including variants.
 
-// #region Guys
-const workerCanvas = document.getElementById("workerCanvas");
-const ctx = workerCanvas.getContext("2d");
-workerCanvas.width = window.innerWidth - 80;
-workerCanvas.height = 200;
+// #region Ascii Shared
 
-const CHAR_GUY = [
-[
-  "  o  ",
-  " /#\\ ",
-  " / \\ "
-],
-[
-  "  o  ",
-  " <#v ",
-  " / \\ "
-],
-[
-  "  o  ",
-  " <T> ",
-  " / \\ "
-],
-[
-  "  o  ",
-  " /#> ",
-  " / \\ "
-],
-[
-  "  o  ",
-  " /X\\ ",
-  " / \\ "
-]];
-
-const CHAR_FINGER = [
-   "   ^",
-   "r^^| ",
-  "\\__|)"
-];
-
-
-
-const mouse = { x: 0, y: 0 };
-const guys = [];
 const WIGGLE_AMPLITUDE = 2; // max wiggle in pixels
 const WIGGLE_SPEED = 0.01;  // speed of wiggle
 const REPULSION_RADIUS = 450; // smaller radius so repulsion looks nicer
@@ -731,10 +695,51 @@ const BASE_FONT_SIZE = 12;
 const MAX_FONT_SIZE = 16;
 const SCALE_RADIUS = 100;
 
+
+// #endregion
+
+// #region Guys
+
+const workerCanvas = document.getElementById("workerCanvas");
+const workerCtx = workerCanvas.getContext("2d");
+workerCanvas.width = window.innerWidth;
+workerCanvas.height = 200;
+
+const CHAR_GUY = [
+[
+	"  o  ",
+	" /#\\ ",
+	" / \\ "
+],
+[
+	"  o  ",
+	" <#v ",
+	" / \\ "
+],
+[
+	"  o  ",
+	" <T> ",
+	" / \\ "
+],
+[
+	"  o  ",
+	" /#> ",
+	" / \\ "
+],
+[
+	"  o  ",
+	" /X\\ ",
+	" / \\ "
+]];
+
+let workerCount;
+const workerMouse = { x: 0, y: 0 };
+const workers = [];
+
 function populateGuys(guysCount){
 	// Initialize guys with fixed home positions and unique IDs
 	for (let i = 0; i < guysCount; i++) {
-		guys.push({
+		workers.push({
 			homeX: Math.random() * (workerCanvas.width - 80),
 			homeY: Math.random() * (workerCanvas.height - 20),
 			id: i,
@@ -745,8 +750,8 @@ function populateGuys(guysCount){
 
 workerCanvas.addEventListener("mousemove", e => {
 	const rect = workerCanvas.getBoundingClientRect(); // get canvas position & size
-	mouse.x = e.clientX - rect.left; // mouse x relative to canvas
-	mouse.y = e.clientY - rect.top;  // mouse y relative to canvas
+	workerMouse.x = e.clientX - rect.left; // mouse x relative to canvas
+	workerMouse.y = e.clientY - rect.top;  // mouse y relative to canvas
 });
 
 // canvas.addEventListener("click", () => {
@@ -759,12 +764,12 @@ workerCanvas.addEventListener("mousemove", e => {
 //   console.log(`Added guy #${guysCount} at (${mouse.x}, ${mouse.y})`);
 // });
 
-function createGuy(x, y){
-	guysCount++;
-	guys.push({
+function createGuy(){
+	workerCount++;
+	workers.push({
 		homeX: Math.random() * (workerCanvas.width - 80),
 		homeY: Math.random() * (workerCanvas.height - 20),
-		id: guysCount,
+		id: workerCount,
 		sprite: CHAR_GUY[Math.floor(Math.random() * CHAR_GUY.length)]
 	});
 }
@@ -773,69 +778,179 @@ function drawGuy(guySprite, x, y, scale) {
 	const fontSize = BASE_FONT_SIZE * scale;
 	const lineHeight = fontSize;
 
-	ctx.font = fontSize + "px monospace";
-	ctx.textBaseline = "top";
-	ctx.fillStyle = getColor(COLOURS.ascii);
+	workerCtx.font = fontSize + "px monospace";
+	workerCtx.textBaseline = "top";
+	workerCtx.fillStyle = getColor(COLOURS.ascii);
 	for (let i = 0; i < guySprite.length; i++) {
-		ctx.fillText(guySprite[i], x, y + i * lineHeight);
+		workerCtx.fillText(guySprite[i], x, y + i * lineHeight);
 	}
 }
 
 let time = 0;
 
-function update() {
-ctx.clearRect(0, 0, workerCanvas.width, workerCanvas.height);
-time += WIGGLE_SPEED;
+function updateWorker() {
+	workerCtx.clearRect(0, 0, workerCanvas.width, workerCanvas.height);
+	time += WIGGLE_SPEED;
 
 
-guys.forEach(g => {
-	// Calculate distance to mouse
-	const dx = g.homeX - mouse.x;
-	const dy = g.homeY - mouse.y;
-	const dist = Math.sqrt(dx * dx + dy * dy);
+	workers.forEach(g => {
+		// Calculate distance to mouse
+		const dx = g.homeX - workerMouse.x;
+		const dy = g.homeY - workerMouse.y;
+		const dist = Math.sqrt(dx * dx + dy * dy);
 
-	// Perlin noise wiggle
-	const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
-	const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
-	const wiggleX = noiseX * WIGGLE_AMPLITUDE;
-	const wiggleY = noiseY * WIGGLE_AMPLITUDE;
+		// Perlin noise wiggle
+		const noiseX = perlin(time + g.id * 10, 0, 0) * 2 - 1; // [-1, 1]
+		const noiseY = perlin(0, time + g.id * 10, 0) * 2 - 1;
+		const wiggleX = noiseX * WIGGLE_AMPLITUDE;
+		const wiggleY = noiseY * WIGGLE_AMPLITUDE;
 
-	let offsetX = wiggleX;
-	let offsetY = wiggleY;
+		let offsetX = wiggleX;
+		let offsetY = wiggleY;
 
-	// If within repulsion radius, push away from mouse
-	if (dist < REPULSION_RADIUS && dist > 0.01) {
-	const nx = dx / dist;
-	const ny = dy / dist;
-	const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
-	offsetX += nx * repulseStrength;
-	offsetY += ny * repulseStrength;
+		// If within repulsion radius, push away from mouse
+		if (dist < REPULSION_RADIUS && dist > 0.01) {
+		const nx = dx / dist;
+		const ny = dy / dist;
+		const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
+		offsetX += nx * repulseStrength;
+		offsetY += ny * repulseStrength;
+		}
+
+		let scale = 1;
+		if(dist < SCALE_RADIUS){
+			const t= 1 - dist / SCALE_RADIUS;
+			scale = 1 + t * ((MAX_FONT_SIZE / BASE_FONT_SIZE) -1);
+		}
+
+		const drawX = g.homeX + offsetX;
+		const drawY = g.homeY + offsetY;
+
+		drawGuy(g.sprite, drawX, drawY, scale);
+	});
+
+	requestAnimationFrame(updateWorker);
+}
+
+// #endregion
+
+// #region Pointers
+
+const pointerCanvas = document.getElementById("pointerCanvas");
+const ctx2 = pointerCanvas.getContext("2d");
+pointerCanvas.width = window.innerWidth;
+pointerCanvas.height = 200;
+
+const CHAR_POINTER = [[
+	"   |  ",
+	"r^^|  ",
+	"\\__|) "
+]];
+
+let pointerCount;
+const pointerMouse = { x: 0, y: 0 }
+const pointers = [];
+
+
+function populatePointers(pointerCount){
+	for (let i = 0; i < pointerCount; i++) {
+		pointers.push({
+			homeX: Math.random() * (pointerCanvas.width - 80),
+			homeY: Math.random() * (pointerCanvas.height - 20),
+			id: i,
+			sprite: CHAR_POINTER[Math.floor(Math.random() * CHAR_POINTER.length)]
+		});
 	}
+}
 
-	let scale = 1;
-	if(dist < SCALE_RADIUS){
-		const t= 1 - dist / SCALE_RADIUS;
-		scale = 1 + t * ((MAX_FONT_SIZE / BASE_FONT_SIZE) -1);
-	}
+// pointerCanvas.addEventListener("click", () => {
+//     pointerCount++;
+//     pointers.push({
+//         homeX: pointerMouse.x,
+//         homeY: pointerMouse.y,
+//         id: pointerCount,
+//         sprite: CHAR_POINTER[Math.floor(Math.random() * CHAR_POINTER.length)]
+//     });
+//     console.log(`Added pointer #${pointerCount} at (${pointerMouse.x}, ${pointerMouse.y})`);
+// });
 
-	const drawX = g.homeX + offsetX;
-	const drawY = g.homeY + offsetY;
-
-	drawGuy(g.sprite, drawX, drawY, scale);
+pointerCanvas.addEventListener("mousemove", e => {
+    const rect = pointerCanvas.getBoundingClientRect(); // get canvas position & size
+    pointerMouse.x = e.clientX - rect.left; // mouse x relative to canvas
+    pointerMouse.y = e.clientY - rect.top;  // mouse y relative to canvas
 });
 
+function createPointer(){
+	pointerCount++;
+	pointers.push({
+		homeX: Math.random() * (pointerCanvas.width - 80),
+		homeY: Math.random() * (pointerCanvas.height - 20),
+		id: pointerCount,
+		sprite: CHAR_POINTER[Math.floor(Math.random() * CHAR_POINTER.length)]
+	});
+}
 
+function drawPointer(pointerSprite, x, y, scale) {
+    const fontSize = BASE_FONT_SIZE * scale;
+    const lineHeight = fontSize;
 
-requestAnimationFrame(update);
+    ctx2.font = fontSize + "px monospace";
+    ctx2.textBaseline = "top";
+    ctx2.fillStyle = getColor(COLOURS.ascii);
+
+    for (let i = 0; i < pointerSprite.length; i++) {
+        ctx2.fillText(pointerSprite[i], x, y + i * lineHeight);
+    }
+}
+
+function updatePointer() {
+    ctx2.clearRect(0, 0, pointerCanvas.width, pointerCanvas.height);
+    time += WIGGLE_SPEED;
+
+    pointers.forEach(p => {
+        // Calculate distance to mouse
+        const dx = p.homeX - pointerMouse.x;
+        const dy = p.homeY - pointerMouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Perlin noise wiggle
+        const noiseX = perlin(time + p.id * 10, 0, 0) * 2 - 1; // [-1, 1]
+        const noiseY = perlin(0, time + p.id * 10, 0) * 2 - 1;
+        const wiggleX = noiseX * WIGGLE_AMPLITUDE;
+        const wiggleY = noiseY * WIGGLE_AMPLITUDE;
+
+        let offsetX = wiggleX;
+        let offsetY = wiggleY;
+
+        // If within repulsion radius, push away from mouse
+        if (dist < REPULSION_RADIUS && dist > 0.01) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const repulseStrength = (REPULSION_RADIUS - dist) / REPULSION_RADIUS * REPULSION_FORCE;
+        offsetX += nx * repulseStrength;
+        offsetY += ny * repulseStrength;
+        }
+
+        let scale = 1;
+        if(dist < SCALE_RADIUS){
+            const t= 1 - dist / SCALE_RADIUS;
+            scale = 1 + t * ((MAX_FONT_SIZE / BASE_FONT_SIZE) -1);
+        }
+
+        const drawX = p.homeX + offsetX;
+        const drawY = p.homeY + offsetY;
+
+        drawPointer(p.sprite, drawX, drawY, scale);
+    });
+    
+    requestAnimationFrame(updatePointer);
 }
 
 // #endregion
 
 
-
-
-
-update();
+updatePointer();
+updateWorker();
 
 </script>
 </html>
