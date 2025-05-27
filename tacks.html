@@ -120,7 +120,7 @@ div.widget{
 	padding: 10px;
 	font-family: monospace;
 	transition-duration: 0.2s;
-	z-index: -1;
+	z-index: 10;
 	width: fit-content;
 	pointer-events: none;
 }
@@ -291,10 +291,12 @@ div.line{
 		<br>
 		<p>Add more debug stuff.</p>
 	</div>
-	<div id="notificationContainer" style="pointer-events: none; position: fixed; z-index: -1; display: flex; bottom: 80px; text-align: center; align-items: center; width: 99%; flex-direction: column-reverse;">
+	<div id="notificationContainer" style="pointer-events: none; position: fixed; display: flex; bottom: 32px; text-align: center; align-items: center; width: 100%; flex-direction: column-reverse;">
 	</div>
 <footer style="pointer-events: none; padding-bottom: 16px;">
-	© Ryan Appleyard MMXXV
+	<label class="small" id="versionLbl"></label>
+	<br>
+	<label class="small">© Ryan Appleyard MMXXV</label>	
 </footer>
 
 
@@ -303,23 +305,104 @@ div.line{
 
 /*=========================================================================
 
-I have a lot of ideas for this, but I need to make it sustainable first.
-I need to break up a lot of the methods into more managable chunks and centralise a lot more of the information.
-Look at the cookie cicker code because it's very accessibly written.
+- Fix timers
+- Create a seed function
+- Reorganise
+- Sort out string storage 	i.e: preferences.theme?'1':'0'; etc.
+- Tool tips and dynamic HTML
 
-The regions are good, but I still need to make it make a bit more sense, this has gotten away from me very quickly.
+-- Tackonomics --
+A rework of the Tack in/out system. Already well overdue I reckon.
+Needs to work nicely with centralised data fields.
+Ensure it scales so laggable scale of ownership isn't attainable.
+
+-- Politacks --
+Worm your way into politics by buying off government officials, lobbying for bills, and funding wars abroad.
+Basically becomes a whole other game akin to like, risk.
+
+Finger 		Increase per click
+Scavenger	Increase per second
+Dropshipper	Increase per minute (randomly)
+3D Printer	Increase per second
+Warehouse Upgrade	Intro to commercial industry
+Workers		Increase per second (during day only: pending labour law change)
+R&D Upgrade		Branches off to researching new methods of production - A research/tech tree?
+
+Beyond this it could go anywhere.
 
 =========================================================================*/
 
 // #region Data
 
+/*=========================================================================
+
+VERSIONING
+Major 0 for pre-release, 1 for release
+Minor: Increment for playable versions.
+Build: Defined by feature additions. Add 'a' or 'b' for alphas and beta respectively.
+Revision: Don't really need. But would increment per commit.
+Date: Formatted as 'YY.MM'.
+
+=========================================================================*/
+
+const MAJOR = "0";
+const MINOR = "2";
+const BUILD = "4a";
+const REVISION = ""; //add decimal if using.
+
+function getDateArray(){
+	//return as YY.MM
+	const cd = new Date();
+	var y = cd.getFullYear();
+	var m = cd.getMonth() + 1; //zero indexed
+	if(m <= 9) m = "0" + m; //add zero to front of month (9 -> 09)
+	var d = cd.getDate();
+	return (`${d}/${m}/${y}`);
+}
+
+function getVersionDate(){
+	var date = getDateArray();
+
+	const re = /^(3[01]|[12][0-9]|0?[1-9])(\/|-)(1[0-2]|0[1-9])\2([0-9]{2})?[0-9]{2}$/;
+	var r = date.toString(re);
+	return (`${r[8]}${r[9]}.${r[3]}${r[4]}`);
+}
+
+function getYearInNumerals(){
+	// I want MMXXV for 2025
+	// It's another regex challenge
+}
+
+const VERSION_DATE = getVersionDate();
+
+function getVersion(){
+	var V = `v${MAJOR}.${MINOR}.${BUILD}${REVISION}-${VERSION_DATE}`;
+	if(!V) return "Error fetching Version";
+	return V;
+}
+
+const VERSION = getVersion();
+
+const THEME = {
+	DARK: 'dark',
+	LIGHT: 'light'
+}
+
 const DATA = {
+	version: VERSION,
+	seed: 0,
+	tacksEarned: 0,
 	tacks: 0,
+	clicks: 0,
+	handmadeTacks: 0,
 	pointerAmount: 0,
 	workerAmount: 0,
 	playedTime: 0,
-	preferredTheme: 0
+	theme: THEME.DARK
 }
+
+// Tacks earned, clicks, handmadeTacks (by click), preferredTheme
+
 
 // Light and Dark refer to the themes they are paired with.
 const COLOURS = {
@@ -337,27 +420,17 @@ const COLOURS = {
 		dark: "#B1A688"
 	}
 }
+
 let AutoValue = {
 	POINTER: 0.25,
 	WORKER: 0.4
-};
+}
 
 let AutoPrice = {
 	POINTER: 20,
 	WORKER: 100
 }
 
-const saveData = {
-	version: "1.0.0",
-	resources: {
-		tacks: DATA.tacks,
-		pointerAmount: DATA.pointerAmount,
-		workerAmount: DATA.workerAmount,
-		playedTime: DATA.playedTime
-	},
-	//add whatever else.
-	lastSave: Date.now()
-}
 
 // #endregion
 
@@ -368,13 +441,11 @@ const tpsLbl = document.getElementById("tpsLbl");
 let upTime = 0;
 let startTime = Date.now();
 
-// const upTimeLbl = document.getElementById("upTimeLbl");
-// const dateTimeLbl = document.getElementById("dateTimeLbl");
-// const playedTimeLbl = document.getElementById("playedTimeLbl");
 const notificationContainer = document.getElementById("notificationContainer");
 const title = document.getElementById("title");
 
 const updateLabel = {
+	version: (val) => { document.getElementById("versionLbl").textContent = val; },
 	tacks: (val) => { document.getElementById("tacksLbl").textContent = val; },
 	pointerAmount: (val) => { document.getElementById("pointerAmountLbl").textContent = val; },
 	workerAmount: (val) => { document.getElementById("workerAmountLbl").textContent = val; },
@@ -384,16 +455,12 @@ const updateLabel = {
 // #region Save Logic
 
 async function newGame() {
-	// Clear the saved data
 	localStorage.removeItem("tacksSave");
 	await loadGame(true);
 	refresh();
 
-	// Optional: notify the player
 	printNotification("New Game Started", COLOURS.green);
 }
-
-
 
 const FIXED_KEY = "tackstack-key123"; // Shared secret
 const FIXED_SALT = new TextEncoder().encode("tackstack-salt");
@@ -453,7 +520,8 @@ async function loadGame(newGame) {
 		DATA.pointerAmount = 0;
 		DATA.workerAmount = 0;
 		DATA.playedTime = 0;
-
+		DATA.version = getVersion();
+		DATA.theme = THEME.DARK; // Is there a way to get this to be system default?
 		refresh();
 		printNotification("New Game!", COLOURS.green);
 		return;
@@ -476,7 +544,8 @@ async function loadGame(newGame) {
 		DATA.pointerAmount = parsed.pointerAmount || 0;
 		DATA.workerAmount = parsed.workerAmount || 0;
 		DATA.playedTime = parsed.playedTime || 0;
-
+		DATA.version = parsed.version || getVersion();
+		DATA.theme = parsed.theme || THEME.DARK;
 		refresh();
 		printNotification("Game Loaded", COLOURS.green);
 	} catch (err) {
@@ -489,17 +558,18 @@ async function loadGame(newGame) {
 
 
 loadGame();
-automation();
 
-// #region Game Logic
+updateLabel["version"](DATA.version);
+
+// #region Buttons
 
 document.getElementById("btn").addEventListener("click", context=>{
-	increment((DATA.pointerAmount * AutoValue.pointer) + 1);
+	increment((DATA.pointerAmount * AutoValue.POINTER) + 1);
 });
 
 document.getElementById("pointerBtn").addEventListener("click", context=>{
-	if(canAfford(AutoPrice.pointer)){
-		buy("pointer", 1, AutoPrice.pointer);
+	if(canAfford(AutoPrice.POINTER)){
+		buy("pointer", 1, AutoPrice.POINTER);
 		createPointer();
 	}
 });
@@ -512,8 +582,7 @@ document.getElementById("workerBtn").addEventListener("click", context=>{
 });
 
 document.getElementById("toggleDark").addEventListener("click", function(){
-	var element = document.body;
-	element.classList.toggle("light");
+	toggleTheme();
 });
 
 document.getElementById("saveGame").addEventListener("click", function(){
@@ -532,11 +601,18 @@ document.getElementById("cheat").addEventListener("click", function(){
 	createPointer(10);
 });
 
+// #endregion
+
+// #region Game Logic
+
+
 setInterval(automation, 1000);
 setInterval(display, FPS);
 setInterval(autosaveGame, 600000);
+setInterval(createTack, 1000 / 4);
 
 function refresh(){
+	forceUpdateTheme();
 	setDataField("tacks", DATA.tacks);
 	setDataField("workerAmount", DATA.workerAmount);
 	setDataField("pointerAmount", DATA.pointerAmount);
@@ -624,27 +700,6 @@ function buy(type, amount, price){
 	}
 }
 
-// Called once per second
-function automation(){
-	calculateTPS();
-	tpsLbl.textContent = TPS.toFixed(2) + " tps";
-	dateTimeLbl.textContent = new Date().toLocaleString();
-	upTime++;
-	var upTimeElapsed = convertTime(upTime);
-	upTimeLbl.textContent = "Up Time: " + upTimeElapsed;
-	DATA.playedTime++;
-	var playedTimeElapsed = convertTime(DATA.playedTime)
-	playedTimeLbl.textContent = "Played Time: " + playedTimeElapsed;
-
-	title.textContent = DATA.tacks.toFixed(0) + " Tacks!";
-}
-
-// Called 24 times per second
-function display(){
-	increment(TPS / FPS);
-	tacksLbl.textContent = numberWithCommas(Math.floor(DATA.tacks));
-}
-
 function calculateTPS(){
 	TPS = AutoValue.WORKER * DATA.workerAmount;
 	// Add automation elements to this ------------------------------------------------------------------- !!
@@ -660,14 +715,6 @@ function getExclusion(canvas){
     width: 300,
     height: 150
 	};
-}
-
-function createPointer(amount = 1){
-	createSprite(pointerCount, CHAR_POINTER, pointerCanvas, pointers, amount);
-}
-
-function createWorker(amount = 1){
-	createSprite(workerCount, CHAR_GUY, workerCanvas, workers, amount);
 }
 
 function createSprite(count, sprite, canvas, collection, amount){
@@ -692,8 +739,8 @@ function populateSprite(count, sprite, canvas, collection){
 function getValidPosition(canvas, exclusion){
 	let x, y;
     do {
-        x = Math.random() * (canvas.width - 80);
-        y = Math.random() * (canvas.height - 20);
+       	x = Math.random() * (canvas.width - 80);
+       	y = Math.random() * (canvas.height - 20);
     } while (
         x > exclusion.x &&
         x < exclusion.x + exclusion.width &&
@@ -706,6 +753,11 @@ function getValidPosition(canvas, exclusion){
 function getValidPositionX(canvas, exclusion){
 	let both = getValidPosition(canvas, exclusion);
 	return both[0];
+}
+
+function getValidPositionY(canvas, exclusion){
+	let both = getValidPosition(canvas, exclusion);
+	return both[1];
 }
 
 function wiggle(g, mouse, yMove){
@@ -757,12 +809,64 @@ function sinWave(radian, radius){
 
 // #region Print & Display
 
+// Called once per second
+function automation(){
+	calculateTPS();
+	tpsLbl.textContent = TPS.toFixed(2) + " tps";
+	dateTimeLbl.textContent = new Date().toLocaleString();
+	upTime++;
+	var upTimeElapsed = convertTime(upTime);
+	upTimeLbl.textContent = "Up Time: " + upTimeElapsed;
+	DATA.playedTime++;
+	var playedTimeElapsed = convertTime(DATA.playedTime)
+	playedTimeLbl.textContent = "Played Time: " + playedTimeElapsed;
+
+	title.textContent = DATA.tacks.toFixed(0) + " Tacks!";
+}
+
+// Called 24 times per second
+function display(){
+	increment(TPS / FPS);
+	tacksLbl.textContent = numberWithCommas(Math.floor(DATA.tacks));
+}
+
+function toggleTheme(){
+	document.body.classList.toggle("light");
+	updateTheme();
+}
+
+function updateTheme(){
+	if(getCurrentTheme() === "light"){
+		DATA.theme = THEME.LIGHT;
+		console.log("Updated DATA.theme to light.");
+	}
+	else{
+		DATA.theme = THEME.DARK;
+		console.log("Updated DATA.theme to dark.");
+	}
+}
+
+function forceUpdateTheme(){
+	// Test to see if theme matches data, if not then toggle.
+
+	if(DATA.theme != getCurrentTheme()){
+		toggleTheme();
+	}
+}
+
+function getCurrentTheme(){
+	return isLightMode() ? THEME.LIGHT: THEME.DARK;
+}
+
 function convertTime(timeIn){
+
+	// This needs fixing, it's going up to like 100 minutes.
+
 	const hours = Math.floor(timeIn / 3600);
 	const minutes = Math.floor((timeIn % 36000) / 60);
 	const seconds = timeIn % 60;
 
-	return hours + "h " + minutes + "m " + seconds + "s";
+	return (`${hours}h ${minutes}m ${seconds}s`);
 }
 
 function printNotification(message, color, duration = 3000){
@@ -805,6 +909,7 @@ function resizeWindow(){
 }
 
 function resizeCanvas(canvas, collection){
+	canvas.height = window.innerHeight;
 	canvas.width = window.innerWidth - 80;
 	const exclusion = getExclusion(canvas);
 
@@ -912,12 +1017,6 @@ setInterval(renderFrame, FPS);
 
 // #endregion
 
-
-// This is where the work is. Refactor to make it more modular, and add in the hand logic.
-// Use sin wave function to get a poking effect.
-
-// Also improvements to the guys, including variants.
-
 // #region Ascii Shared
 
 const WIGGLE_AMPLITUDE = 2; // max wiggle in pixels
@@ -932,18 +1031,17 @@ const P_MAX_FONT_SIZE = 13;
 const SCALE_RADIUS = 100;
 const ROT_RADIUS = 100;
 
+// #endregion
+
+// #region Guys
 
 function populateGuys(){
 	populateSprite(DATA.workerAmount, CHAR_GUY, workerCanvas, workers);
 }
 
-function populatePointers(){
-	populateSprite(DATA.pointerAmount, CHAR_POINTER, pointerCanvas, pointers);
+function createWorker(amount = 1){
+	createSprite(workerCount, CHAR_GUY, workerCanvas, workers, amount);
 }
-
-// #endregion
-
-// #region Guys
 
 const workerCanvas = document.getElementById("workerCanvas");
 const workerCtx = workerCanvas.getContext("2d");
@@ -974,6 +1072,11 @@ const CHAR_GUY = [
 [
 	"  o  ",
 	" /X\\ ",
+	" / \\ "
+],
+[
+	"  o  ",
+	" (Y) ",
 	" / \\ "
 ]];
 
@@ -1017,6 +1120,14 @@ function updateWorker() {
 
 // #region Pointers
 
+function populatePointers(){
+	populateSprite(DATA.pointerAmount, CHAR_POINTER, pointerCanvas, pointers);
+}
+
+function createPointer(amount = 1){
+	createSprite(pointerCount, CHAR_POINTER, pointerCanvas, pointers, amount);
+}
+
 const pointerCanvas = document.getElementById("pointerCanvas");
 const ctx2 = pointerCanvas.getContext("2d");
 pointerCanvas.width = window.innerWidth;
@@ -1025,6 +1136,11 @@ pointerCanvas.height = 200;
 const CHAR_POINTER = [[
 	"   |  ",
 	"r^^|  ",
+	"\\__|) "
+],
+[
+	"  |   ",
+	"r^'^  ",
 	"\\__|) "
 ]];
 
@@ -1058,7 +1174,7 @@ function updatePointer() {
     time += WIGGLE_SPEED;
 
     pointers.forEach(p => {
-		const v = wiggle(p, pointerMouse, 1.2);
+	const v = wiggle(p, pointerMouse, 1.2);
         drawPointer(p.sprite, v[0], v[1], v[2]);
     });
     
@@ -1067,6 +1183,106 @@ function updatePointer() {
 
 updatePointer();
 updateWorker();
+
+// #endregion
+
+// === CONFIG ===
+// const TPS = 16;
+const T_BASE_FONT_SIZE = 18;
+const tackCount = 20;
+const yVelocity = 1;
+
+// === CANVAS SETUP ===
+const tackCanvas = document.getElementById("tackCanvas");
+const ctx3 = tackCanvas.getContext("2d");
+tackCanvas.width = window.innerWidth;
+tackCanvas.height = 200;
+
+// === SPRITES & DATA ===
+const CHAR_TACK = [
+[ "Π",
+  "T" ]];
+let tacks = [];
+const tackMouse = { x: 0, y: 0 };
+
+// === EVENTS ===
+tackCanvas.addEventListener("mousemove", e => {
+	const rect = tackCanvas.getBoundingClientRect();
+	tackMouse.x = e.clientX - rect.left;
+	tackMouse.y = e.clientY - rect.top;
+});
+
+tackCanvas.addEventListener("click", e => {
+	console.log("Click created Tack");
+	drawTack(CHAR_TACK, e.x, e.y, 1);
+})
+
+// === DRAWING ===
+function drawTack(tackSprite, x, y, scale) {
+	const tackFontSize = T_BASE_FONT_SIZE * scale;
+	const lineHeight = tackFontSize / 2;
+
+	ctx3.font = `${tackFontSize}px monospace`;
+	ctx3.textBaseline = "top";
+	ctx3.fillStyle = getColor(COLOURS.ascii);
+
+	for (let i = 0; i < tackSprite.length; i++) {
+		ctx3.fillText(tackSprite[i], x, y + i * lineHeight);
+	}
+}
+
+// === CREATION ===
+function createTack(amount = 1) {
+	console.log("Creating Tack");
+	for (let i = 0; i < amount; i++) {
+		const sprite = CHAR_TACK[Math.floor(Math.random() * CHAR_TACK.length)];
+		tacks.push({
+			homeX: Math.random() * (tackCanvas.width - 20),
+			homeY: -30, // start above canvas
+			sprite: sprite,
+			scale: 1,
+		});
+	}
+}
+
+// === UPDATE LOOP ===
+function updateTack(timestamp) {
+	ctx3.clearRect(0, 0, tackCanvas.width, tackCanvas.height);
+
+	// Update and draw
+	tacks.forEach(p => {
+		p.homeY += yVelocity;
+	});
+	tacks = tacks.filter(p => p.homeY < tackCanvas.height + 50);
+	
+	tacks.forEach(p => {
+		const v = wiggle(p, tackMouse, 0);
+		drawTack(p.sprite, v[0], v[1], v[2]);
+	});
+
+	requestAnimationFrame(updateTack);
+}
+
+updateTack();
+
+// #region Naming & Formatting
+
+/* ================================================
+
+Factory Name, worker names, maybe number suffix handling.
+
+=================================================*/
+
+
+function generateFactoryName(){
+	// randomly choose 2 (or 3?) words from lists that create a dumb name.
+	return "Placeholder Inc";
+}
+
+function generateWorkerNames(){
+	"Winston";
+}
+
 
 // #endregion
 
