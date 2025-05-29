@@ -90,7 +90,8 @@ footer {
 	height: 100px;
 	width: 100%;
 	text-align: center;
-	align-content: center;
+	display: flex;
+	flex-direction: column-reverse;
 	z-index: 10;
 }
 div.widget{
@@ -146,34 +147,35 @@ div.line{
 	height: 1px;
 	background-color: var(--ascii);
 }
-.marquee-text {
-  overflow: clip;
+
+
+.marquee {
+	margin: 0 auto;
+	white-space: nowrap;
+	overflow: hidden;
+	position: relative;
+	width: 100%;
+	padding-top: 1px;
 }
 
-.marquee-text-track {
-  display: flex;
-  padding-left: 256px;
-  gap: 256px;
-  width: max-content;
-  animation: marquee-move-text var(--speed, 17s) linear infinite var(
-      --direction,
-      forwards
-    );
+.marquee span {
+	display: inline-block;
+	padding-left: 100%;
+	animation: marquee 17s linear infinite;
 }
 
-.marquee-text p {
-  font-size: 16px;
-  margin: 0px;
-  padding-left: 256px;
+.marquee2 span {
+	animation-delay: 17s;
 }
 
-@keyframes marquee-move-text {
-  to {
-    transform: translateX(-50%);
-  }
+@keyframes marquee {
+	0% {
+		transform: translate(0, 0);
+	}
+	100% {
+		transform: translate(-100%, 0);
+	}
 }
-
-
 
 </style>
 </head>
@@ -182,18 +184,10 @@ div.line{
 	<div style="height: 290px">
 		<pre id="ascii" style="z-index: -1;"></pre>
 		<div class="line"></div>
-		<div class="marquee-text">
-		<div class="marquee-text-track">
-			<p>This is a work in progress, be gentle.</p>
-			<p>This is a work in progress, be gentle.</p>
-			<p>This is a work in progress, be gentle.</p>
-			<p>This is a work in progress, be gentle.</p>
-			<p aria-hidden="true">This is a work in progress, be gentle.</p>
-			<p aria-hidden="true">This is a work in progress, be gentle.</p>
-			<p aria-hidden="true">This is a work in progress, be gentle.</p>
-			<p aria-hidden="true">This is a work in progress, be gentle.</p>
-
-		</div>
+		<div id="tickerContainer">
+		<p class="marquee">
+			<span id="ticker"></span>
+		</p>
 		</div>
 		<div style="display: flex; flex-direction: column; align-items: center; width: 100%">
 			<div class="widget buy">
@@ -207,7 +201,6 @@ div.line{
 			</div>
 		</div>
 	</div>
-	
 	<div class="line"></div>
 	<div id="tackSlice" class="slice">
 		<canvas id="tackCanvas"></canvas>
@@ -227,7 +220,7 @@ div.line{
 						<label class="small">+0.25 per click</label> <br>
 						<label class="small">Cost: 20</label>
 						<br>
-						<label class="small">Owned:<label class="small" id="pointerAmountLbl">0</label></label>
+						<label class="small">Owned:<label class="small" id="pointersOwnedLbl">0</label></label>
 					</div>
 				</div>
 			</div>
@@ -240,7 +233,7 @@ div.line{
 						<label class="small">+0.4 per second</label><br>
 						<label class="small">Cost: 100</label>
 						<br>
-						<label class="small">Owned:<label class="small" id="workerAmountLbl">0</label></label>
+						<label class="small">Owned:<label class="small" id="workersOwnedLbl">0</label></label>
 					</div>
 				</div>
 			</div>
@@ -253,7 +246,7 @@ div.line{
 						<label class="small">+100 per minute (randomly)</label><br>
 						<label class="small">Cost: 1000</label>
 						<br>
-						<label class="small">Owned:<label class="small" id="dropperAmountLbl">0</label></label>
+						<label class="small">Owned:<label class="small" id="droppersOwnedLbl">0</label></label>
 					</div>
 				</div>
 			</div>
@@ -267,7 +260,7 @@ div.line{
 						<label class="small">+X per Y</label><br>
 						<label class="small">Cost: Z</label>
 						<br>
-						<label class="small">Owned:<label class="small" id="templateAmountLbl">0</label></label>
+						<label class="small">Owned:<label class="small" id="templatesOwnedLbl">0</label></label>
 					</div>
 				</div>
 			</div>
@@ -294,9 +287,9 @@ div.line{
 	<div id="notificationContainer" style="pointer-events: none; position: fixed; display: flex; bottom: 32px; text-align: center; align-items: center; width: 100%; flex-direction: column-reverse;">
 	</div>
 <footer style="pointer-events: none; padding-bottom: 16px;">
-	<label class="small" id="versionLbl"></label>
-	<br>
 	<label class="small">© Ryan Appleyard MMXXV</label>	
+	<br>
+	<label class="small" id="versionLbl"></label>
 </footer>
 
 
@@ -305,21 +298,25 @@ div.line{
 
 /*=========================================================================
 
+== TO-DO ==
 - Fix timers
+- Rename central data to more intuitive names i.e. pointerAmount => OwnedPointers
 - Create a seed function
 - Reorganise
 - Sort out string storage 	i.e: preferences.theme?'1':'0'; etc.
 - Tool tips and dynamic HTML
 
--- Tackonomics --
+== Tackonomics ==
 A rework of the Tack in/out system. Already well overdue I reckon.
 Needs to work nicely with centralised data fields.
 Ensure it scales so laggable scale of ownership isn't attainable.
 
--- Politacks --
+== Politacks ==
 Worm your way into politics by buying off government officials, lobbying for bills, and funding wars abroad.
 Basically becomes a whole other game akin to like, risk.
+An ASCII board room could be really cool. Like a separate screen entirely.
 
+== Progression ==
 Finger 		Increase per click
 Scavenger	Increase per second
 Dropshipper	Increase per minute (randomly)
@@ -327,8 +324,14 @@ Dropshipper	Increase per minute (randomly)
 Warehouse Upgrade	Intro to commercial industry
 Workers		Increase per second (during day only: pending labour law change)
 R&D Upgrade		Branches off to researching new methods of production - A research/tech tree?
+Board Room Upgrade	Opens up a whole coruption line of stuff
 
 Beyond this it could go anywhere.
+
+An interactable ASCII research tree. Yes please.
+I need to nail tooltips and alt windows and stuff first though.
+
+Achievements would also be cool. Need to consider the impact on SaveData though.
 
 =========================================================================*/
 
@@ -388,21 +391,29 @@ const THEME = {
 	LIGHT: 'light'
 }
 
+// Internal Data
+let _tacks = 0;
+let _tacksPerSecond = 0;
+let _tacksPerClick = 1;
+
+let _pointersOwned = 0;
+let _workersOwned = 0;
+let _totalHandmadeTacks = 0;
+let _clicks = 0;
+
 const DATA = {
 	version: VERSION,
 	seed: 0,
-	tacksEarned: 0,
 	tacks: 0,
 	clicks: 0,
-	handmadeTacks: 0,
-	pointerAmount: 0,
-	workerAmount: 0,
+	tacksPerClick: 0,
+	totalHandmadeTacks: 0,
+	totalTacksEarned: 0,
+	pointersOwned: 0,
+	workersOwned: 0,
 	playedTime: 0,
-	theme: THEME.DARK
+	theme: THEME.LIGHT
 }
-
-// Tacks earned, clicks, handmadeTacks (by click), preferredTheme
-
 
 // Light and Dark refer to the themes they are paired with.
 const COLOURS = {
@@ -421,44 +432,46 @@ const COLOURS = {
 	}
 }
 
-let AutoValue = {
-	POINTER: 0.25,
-	WORKER: 0.4
+let AUTO_VALUE = {
+	pointer: 0.25,
+	worker: 0.4
 }
 
-let AutoPrice = {
-	POINTER: 20,
-	WORKER: 100
+let COST = {
+	pointer: 20,
+	worker: 100
 }
-
 
 // #endregion
 
-let TPS = 0;
 const FPS = 1000 / 32;
-const tpsLbl = document.getElementById("tpsLbl");
-
-let upTime = 0;
+let _upTimeElapsed = 0;
+let _playedTimeElapsed = 0;
 let startTime = Date.now();
 
-const notificationContainer = document.getElementById("notificationContainer");
-const title = document.getElementById("title");
+const notificationContainer = l("notificationContainer");
+
 
 const updateLabel = {
-	version: (val) => { document.getElementById("versionLbl").textContent = val; },
-	tacks: (val) => { document.getElementById("tacksLbl").textContent = val; },
-	pointerAmount: (val) => { document.getElementById("pointerAmountLbl").textContent = val; },
-	workerAmount: (val) => { document.getElementById("workerAmountLbl").textContent = val; },
-	// Add more as needed...
+	version: (val) => { l("versionLbl").textContent = val; },
+	tacks: (val) => { l("tacksLbl").textContent = val; },
+	tps: (val) => { l("tpsLbl").textContent = val },
+	pointersOwned: (val) => { l("pointersOwnedLbl").textContent = val; },
+	workersOwned: (val) => { l("workersOwnedLbl").textContent = val; },
+	title: (val) => { l("title").textContent = val; },
+	dateTime: (val) => { l("dateTimeLbl").textContent = val; },
+	upTime: (val) => { l("upTimeLbl").textContent = val; },
+	playTime: (val) => { l("playedTimeLbl").textContent = val; }
 };
 
 // #region Save Logic
 
-async function newGame() {
+function newGame() {
 	localStorage.removeItem("tacksSave");
-	await loadGame(true);
+	loadGame(true);
+	subtractGuy(workers.length);
+	subtractPointer(pointers.length);
 	refresh();
-
 	printNotification("New Game Started", COLOURS.green);
 }
 
@@ -516,12 +529,15 @@ function autosaveGame() {
 async function loadGame(newGame) {
 
 	if(newGame){
-		DATA.tacks =  0;
-		DATA.pointerAmount = 0;
-		DATA.workerAmount = 0;
+		_tacksPerSecond = 0;
+		_tacksPerClick = 1;
+		DATA.seed = generateSeed();
+		_tacks =  0;
+		_pointersOwned = 0;
+		_workersOwned = 0;
 		DATA.playedTime = 0;
 		DATA.version = getVersion();
-		DATA.theme = THEME.DARK; // Is there a way to get this to be system default?
+		DATA.theme = THEME.LIGHT; // Is there a way to get this to be system default?
 		refresh();
 		printNotification("New Game!", COLOURS.green);
 		return;
@@ -540,12 +556,14 @@ async function loadGame(newGame) {
 		const json = new TextDecoder().decode(decrypted);
 		const parsed = JSON.parse(json);
 
-		DATA.tacks = parsed.tacks || 0;
-		DATA.pointerAmount = parsed.pointerAmount || 0;
-		DATA.workerAmount = parsed.workerAmount || 0;
-		DATA.playedTime = parsed.playedTime || 0;
+		DATA.seed = parsed.seed || generateSeed();
+		_tacks = parsed.tacks || 0;
+		_pointersOwned = parsed.pointersOwned || 0;
+		_workersOwned = parsed.workersOwned || 0;
+		_playedTimeElapsed = parsed.playedTime || 0;
 		DATA.version = parsed.version || getVersion();
-		DATA.theme = parsed.theme || THEME.DARK;
+		DATA.theme = parsed.theme || THEME.LIGHT;
+		saveIntoData();
 		refresh();
 		printNotification("Game Loaded", COLOURS.green);
 	} catch (err) {
@@ -553,81 +571,54 @@ async function loadGame(newGame) {
 	}
 }
 
+async function saveIntoData(){
+	DATA.tacks = _tacks;
+	DATA.pointersOwned = _pointersOwned;
+	DATA.workersOwned = _workersOwned;
+	DATA.playedTime = _playedTimeElapsed;
+}
+
+setInterval(autosaveGame, 600000);
 
 // #endregion
 
-
-loadGame();
-
-updateLabel["version"](DATA.version);
+updateLabel["version"](VERSION);
 
 // #region Buttons
 
-document.getElementById("btn").addEventListener("click", context=>{
-	increment((DATA.pointerAmount * AutoValue.POINTER) + 1);
-});
-
-document.getElementById("pointerBtn").addEventListener("click", context=>{
-	if(canAfford(AutoPrice.POINTER)){
-		buy("pointer", 1, AutoPrice.POINTER);
-		createPointer();
-	}
-});
-
-document.getElementById("workerBtn").addEventListener("click", context=>{
-	if(canAfford(AutoPrice.WORKER)){
-		buy("worker", 1, AutoPrice.WORKER);
-		createWorker();
-	}
-});
-
-document.getElementById("toggleDark").addEventListener("click", function(){
-	toggleTheme();
-});
-
-document.getElementById("saveGame").addEventListener("click", function(){
-	saveGame();
-})
-
-document.getElementById("newGame").addEventListener("click", function(){
-	newGame();
-})
-
-document.getElementById("cheat").addEventListener("click", function(){
+l("btn").addEventListener("click", context=>{ increment(_tacksPerClick);});
+l("pointerBtn").addEventListener("click", context=>{ buy("pointer"); });
+l("workerBtn").addEventListener("click", context=>{ buy("worker"); });
+l("toggleDark").addEventListener("click", function(){ toggleTheme(); });
+l("saveGame").addEventListener("click", function(){ saveGame(); })
+l("newGame").addEventListener("click", function(){ newGame(); })
+l("cheat").addEventListener("click", function(){
 	incrementDataField("tacks", 999999);
-	buy("worker", 10, AutoPrice.WORKER);
-	createWorker(10);
-	buy("pointer", 10, AutoPrice.POINTER);
-	createPointer(10);
+	buy("worker", 20, true);
+	buy("pointer", 20, true);
 });
 
 // #endregion
 
 // #region Game Logic
 
-
-setInterval(automation, 1000);
-setInterval(display, FPS);
-setInterval(autosaveGame, 600000);
-setInterval(createTack, 1000 / 4);
-
-function refresh(){
+async function refresh(){
 	forceUpdateTheme();
-	setDataField("tacks", DATA.tacks);
-	setDataField("workerAmount", DATA.workerAmount);
-	setDataField("pointerAmount", DATA.pointerAmount);
-	repopulate();
+	setDataField("tacks", _tacks);
+	setDataField("pointersOwned", _pointersOwned);
+	setDataField("workersOwned", _workersOwned);
+	await repopulate();
 	// Calculate compounding price changes.
-	
 }
 
-function repopulate(){
+async function repopulate(){
 	populateGuys();
 	populatePointers();
 }
 
 function increment(amount){
-	DATA.tacks += amount;
+	_tacks += amount;
+	createTack(amount);
 }
 
 function incrementSpecific(name, amount) {
@@ -678,19 +669,19 @@ function setDataField(fieldName, amount = 1) {
 	}
 }
 
+function subtractTacks(amount){ _tacks -= amount; }
 
-function decrement(amount){
-	DATA.tacks -= amount;
-}
+function canAfford(price){ return true ? price <= parseInt(_tacks, 10) : false; }
 
-function canAfford(price){
-	return true ? price <= parseInt(DATA.tacks, 10) : false;
-}
+function getPrice(type){ return COST[type]; }
 
-function buy(type, amount, price){
+function buy(type, amount = 1, cheat = false){
+	let price = getPrice(type);
+	if(cheat){price = 0};
 	if(canAfford(price)){
-		decrement(price);
-		incrementDataField(type + "Amount", amount);
+		subtractTacks(price);
+		incrementDataField(type + "sOwned", amount);
+		create(type, amount);
 		printNotification("Bought: " + amount + "x " + type, COLOURS.text, 2000);
 		return true;
 	}
@@ -700,40 +691,39 @@ function buy(type, amount, price){
 	}
 }
 
+function create(type, amount){
+	switch(type){
+		case "worker":
+			createWorker(amount);
+			break;
+		case "pointer":
+			createPointer(amount);
+			break;
+	}
+}
+
 function calculateTPS(){
-	TPS = AutoValue.WORKER * DATA.workerAmount;
+	_tacksPerSecond = AUTO_VALUE.worker * _workersOwned;
 	// Add automation elements to this ------------------------------------------------------------------- !!
+}
+
+function calculateTPC(){
+	_tacksPerClick = (AUTO_VALUE.pointer * _pointersOwned) + 1;
 }
 // #endregion
 
 // #region Utility
 
-function getExclusion(canvas){
-	return {
-    x: canvas.width / 2 - 175,
-    y: canvas.height / 2 - 90,
-    width: 300,
-    height: 150
-	};
-}
+// Thank you Orteil!!
+function l(what) { return document.getElementById(what);}
+function choose(arr) { return arr[Math.floor(Math.random()*arr.length)];}
+function randomFloor(x) {if ((x%1)<Math.random()) return Math.floor(x); else return Math.ceil(x);}
 
-function createSprite(count, sprite, canvas, collection, amount){
-	count += amount
-	populateSprite(count, sprite, canvas, collection);
-}
-
-function populateSprite(count, sprite, canvas, collection){
-	const exclusion = getExclusion(canvas);
-
-	for (let i = 0; i < count; i++) {
-		const {x: X, y:Y} = getValidPosition(canvas, exclusion)
-		collection.push({
-			homeX: X,
-			homeY: Y,
-			id: i,
-			sprite: sprite[Math.floor(Math.random() * sprite.length)]
-		});
-	}
+function generateSeed(){
+	var chars = 'abcdefghijklmnopqrstuvwxyz'.split('');
+	var str = '';
+	for(var i=0; i<5; i++){ str += choose(chars); }
+	return str;
 }
 
 function getValidPosition(canvas, exclusion){
@@ -801,34 +791,33 @@ function wiggle(g, mouse, yMove){
 	return drawVector;
 }
 
-function sinWave(radian, radius){
-	return Math.sin(radian) * radius;
-}
+function sinWave(radian, radius){ return Math.sin(radian) * radius; }
 
 // #endregion
 
-// #region Print & Display
+// #region Display
 
-// Called once per second
-function automation(){
+function refreshDisplay(){
 	calculateTPS();
-	tpsLbl.textContent = TPS.toFixed(2) + " tps";
-	dateTimeLbl.textContent = new Date().toLocaleString();
-	upTime++;
-	var upTimeElapsed = convertTime(upTime);
-	upTimeLbl.textContent = "Up Time: " + upTimeElapsed;
-	DATA.playedTime++;
-	var playedTimeElapsed = convertTime(DATA.playedTime)
-	playedTimeLbl.textContent = "Played Time: " + playedTimeElapsed;
+	calculateTPC();
+	_tacks += _tacksPerSecond / FPS;
+	updateLabel["tacks"](numberWithCommas(_tacks.toFixed(0)));
+	updateLabel["tps"](_tacksPerSecond.toFixed(2) + " tps");
+	updateLabel["dateTime"](new Date().toLocaleString());
+	updateLabel["playTime"](`Played Time: ${convertTime(_playedTimeElapsed)}`);
+	updateLabel["upTime"](`Up Time: ${convertTime(_upTimeElapsed)}`);
+}//buffalo
 
-	title.textContent = DATA.tacks.toFixed(0) + " Tacks!";
+function secondDisplay(){
+	increment(_tacksPerSecond);
+	updateLabel["title"](`${_tacks.toFixed(0)} Tacks!`);
+	_upTimeElapsed++;
+	_playedTimeElapsed++;
+	DATA.playedTime = _playedTimeElapsed;
 }
 
-// Called 24 times per second
-function display(){
-	increment(TPS / FPS);
-	tacksLbl.textContent = numberWithCommas(Math.floor(DATA.tacks));
-}
+setInterval(refreshDisplay, 1000 / FPS);
+setInterval(secondDisplay, 1000);
 
 function toggleTheme(){
 	document.body.classList.toggle("light");
@@ -838,20 +827,14 @@ function toggleTheme(){
 function updateTheme(){
 	if(getCurrentTheme() === "light"){
 		DATA.theme = THEME.LIGHT;
-		console.log("Updated DATA.theme to light.");
 	}
 	else{
 		DATA.theme = THEME.DARK;
-		console.log("Updated DATA.theme to dark.");
 	}
 }
 
 function forceUpdateTheme(){
-	// Test to see if theme matches data, if not then toggle.
-
-	if(DATA.theme != getCurrentTheme()){
-		toggleTheme();
-	}
+	if(DATA.theme != getCurrentTheme()){ toggleTheme(); }
 }
 
 function getCurrentTheme(){
@@ -863,7 +846,7 @@ function convertTime(timeIn){
 	// This needs fixing, it's going up to like 100 minutes.
 
 	const hours = Math.floor(timeIn / 3600);
-	const minutes = Math.floor((timeIn % 36000) / 60);
+	const minutes = Math.floor((timeIn % 36000) / 60 % 60);
 	const seconds = timeIn % 60;
 
 	return (`${hours}h ${minutes}m ${seconds}s`);
@@ -893,6 +876,7 @@ function isLightMode() {
     return document.body.classList.contains("light");
 }
 
+// I need a new version of this.
 function numberWithCommas(x) {
     x = x.toString();
     var pattern = /(-?\d+)(\d{3})/;
@@ -1008,11 +992,6 @@ function renderFrame() {
   }
 }
 
-// Don't want this for prod
-// document.addEventListener("keydown", (e) => {
-//   if (e.code === "Space") paused = !paused;
-// });
-
 setInterval(renderFrame, FPS);
 
 // #endregion
@@ -1024,6 +1003,8 @@ const WIGGLE_SPEED = 0.01;  // speed of wiggle
 const REPULSION_RADIUS = 450; // smaller radius so repulsion looks nicer
 const REPULSION_FORCE = 2; // how strongly guys get pushed away
 
+const MAX_SPRITE_COUNT = 256;
+
 const P_BASE_FONT_SIZE = 8;
 const W_BASE_FONT_SIZE = 12;
 const W_MAX_FONT_SIZE = 16;
@@ -1031,16 +1012,45 @@ const P_MAX_FONT_SIZE = 13;
 const SCALE_RADIUS = 100;
 const ROT_RADIUS = 100;
 
+function getExclusion(canvas){
+	return {
+    x: canvas.width / 2 - 175,
+    y: canvas.height / 2 - 90,
+    width: 300,
+    height: 150
+	};
+}
+
+function createSprite(count, sprite, canvas, collection, amount){
+	count += amount
+	populateSprite(count, sprite, canvas, collection);
+}
+
+function populateSprite(count, sprite, canvas, collection){
+	const exclusion = getExclusion(canvas);
+	count = Math.min(count, MAX_SPRITE_COUNT);	
+
+	for (let i = 0; i < count; i++) {
+		const {x: X, y:Y} = getValidPosition(canvas, exclusion)
+		collection.push({
+			homeX: X,
+			homeY: Y,
+			id: i,
+			sprite: sprite[Math.floor(Math.random() * sprite.length)]
+		});
+	}
+}
+
 // #endregion
 
 // #region Guys
 
 function populateGuys(){
-	populateSprite(DATA.workerAmount, CHAR_GUY, workerCanvas, workers);
+	populateSprite(_workersOwned, CHAR_GUY, workerCanvas, workers);
 }
 
 function createWorker(amount = 1){
-	createSprite(workerCount, CHAR_GUY, workerCanvas, workers, amount);
+	createSprite(_workersOwned, CHAR_GUY, workerCanvas, workers, amount);
 }
 
 const workerCanvas = document.getElementById("workerCanvas");
@@ -1080,7 +1090,6 @@ const CHAR_GUY = [
 	" / \\ "
 ]];
 
-let workerCount = 0;
 const workerMouse = { x: 0, y: 0 };
 const workers = [];
 
@@ -1089,6 +1098,12 @@ workerCanvas.addEventListener("mousemove", e => {
 	workerMouse.x = e.clientX - rect.left; // mouse x relative to canvas
 	workerMouse.y = e.clientY - rect.top;  // mouse y relative to canvas
 });
+
+function subtractGuy(amount = 1){
+	for(i = 0; i < amount; i++){
+		workers.pop();
+	}
+}
 
 function drawGuy(guySprite, x, y, scale) {
 	const fontSize = W_BASE_FONT_SIZE * scale;
@@ -1121,7 +1136,7 @@ function updateWorker() {
 // #region Pointers
 
 function populatePointers(){
-	populateSprite(DATA.pointerAmount, CHAR_POINTER, pointerCanvas, pointers);
+	populateSprite(_pointersOwned, CHAR_POINTER, pointerCanvas, pointers);
 }
 
 function createPointer(amount = 1){
@@ -1129,7 +1144,7 @@ function createPointer(amount = 1){
 }
 
 const pointerCanvas = document.getElementById("pointerCanvas");
-const ctx2 = pointerCanvas.getContext("2d");
+const pointerCtx = pointerCanvas.getContext("2d");
 pointerCanvas.width = window.innerWidth;
 pointerCanvas.height = 200;
 
@@ -1154,23 +1169,29 @@ pointerCanvas.addEventListener("mousemove", e => {
     pointerMouse.y = e.clientY - rect.top;  // mouse y relative to canvas
 });
 
+function subtractPointer(amount = 1){
+	for(i = 0; i < amount; i++){
+		pointers.pop();
+	}
+}
+
 function drawPointer(pointerSprite, x, y, scale) {
     const pointerFontSize = P_BASE_FONT_SIZE * scale;
     const lineHeight = pointerFontSize;
 
-    ctx2.font = pointerFontSize + "px monospace";
-    ctx2.textBaseline = "top";
-    ctx2.fillStyle = getColor(COLOURS.ascii);
+    pointerCtx.font = pointerFontSize + "px monospace";
+    pointerCtx.textBaseline = "top";
+    pointerCtx.fillStyle = getColor(COLOURS.ascii);
 
     for (let i = 0; i < pointerSprite.length; i++) {
-        ctx2.fillText(pointerSprite[i], x, y + i * lineHeight);
+        pointerCtx.fillText(pointerSprite[i], x, y + i * lineHeight);
     }
 }
 
 
 
 function updatePointer() {
-    ctx2.clearRect(0, 0, pointerCanvas.width, pointerCanvas.height);
+    pointerCtx.clearRect(0, 0, pointerCanvas.width, pointerCanvas.height);
     time += WIGGLE_SPEED;
 
     pointers.forEach(p => {
@@ -1181,110 +1202,140 @@ function updatePointer() {
     requestAnimationFrame(updatePointer);
 }
 
-updatePointer();
-updateWorker();
-
 // #endregion
 
-// === CONFIG ===
-// const TPS = 16;
-const T_BASE_FONT_SIZE = 18;
-const tackCount = 20;
-const yVelocity = 1;
+// #region Tack Render
+function createTack(amount = 1) {
+	if(tacks.length >= MAX_SPRITE_COUNT) return;
+	createSprite(tackCount, CHAR_TACK, tackCanvas, tacks, amount)
+}
+
+function populateTack(){
+	populateSprite(tackCount, CHAR_TACK, tackCanvas, tacks);
+}
 
 // === CANVAS SETUP ===
 const tackCanvas = document.getElementById("tackCanvas");
-const ctx3 = tackCanvas.getContext("2d");
+const tackCtx = tackCanvas.getContext("2d");
 tackCanvas.width = window.innerWidth;
 tackCanvas.height = 200;
 
 // === SPRITES & DATA ===
 const CHAR_TACK = [
-[ "Π",
-  "T" ]];
-let tacks = [];
+[ " Π ",
+  " T " ]];
+
+const T_BASE_FONT_SIZE = 18;
+const yVelocity = 2;
+let tackCount = 0;
 const tackMouse = { x: 0, y: 0 };
-
-// === EVENTS ===
-tackCanvas.addEventListener("mousemove", e => {
-	const rect = tackCanvas.getBoundingClientRect();
-	tackMouse.x = e.clientX - rect.left;
-	tackMouse.y = e.clientY - rect.top;
-});
-
-tackCanvas.addEventListener("click", e => {
-	console.log("Click created Tack");
-	drawTack(CHAR_TACK, e.x, e.y, 1);
-})
+let tacks = [];
 
 // === DRAWING ===
 function drawTack(tackSprite, x, y, scale) {
 	const tackFontSize = T_BASE_FONT_SIZE * scale;
 	const lineHeight = tackFontSize / 2;
 
-	ctx3.font = `${tackFontSize}px monospace`;
-	ctx3.textBaseline = "top";
-	ctx3.fillStyle = getColor(COLOURS.ascii);
+	tackCtx.font = `${tackFontSize}px monospace`;
+	tackCtx.textBaseline = "top";
+	tackCtx.fillStyle = getColor(COLOURS.ascii);
 
 	for (let i = 0; i < tackSprite.length; i++) {
-		ctx3.fillText(tackSprite[i], x, y + i * lineHeight);
-	}
-}
-
-// === CREATION ===
-function createTack(amount = 1) {
-	console.log("Creating Tack");
-	for (let i = 0; i < amount; i++) {
-		const sprite = CHAR_TACK[Math.floor(Math.random() * CHAR_TACK.length)];
-		tacks.push({
-			homeX: Math.random() * (tackCanvas.width - 20),
-			homeY: -30, // start above canvas
-			sprite: sprite,
-			scale: 1,
-		});
+		tackCtx.fillText(tackSprite[i], x, y + i * lineHeight);
 	}
 }
 
 // === UPDATE LOOP ===
-function updateTack(timestamp) {
-	ctx3.clearRect(0, 0, tackCanvas.width, tackCanvas.height);
+function updateTack() {
+	tackCtx.clearRect(0, 0, tackCanvas.width, tackCanvas.height);
 
-	// Update and draw
+	tacks = tacks.filter(p => p.homeY < tackCanvas.height + 200);
+
 	tacks.forEach(p => {
-		p.homeY += yVelocity;
-	});
-	tacks = tacks.filter(p => p.homeY < tackCanvas.height + 50);
-	
-	tacks.forEach(p => {
+		p.homeY += Math.random() * yVelocity + 1;
 		const v = wiggle(p, tackMouse, 0);
-		drawTack(p.sprite, v[0], v[1], v[2]);
+		drawTack(p.sprite, v[0], p.homeY - 200, v[2]);
 	});
-
+	
 	requestAnimationFrame(updateTack);
 }
 
+// #endregion
+
+updatePointer();
+updateWorker();
 updateTack();
 
 // #region Naming & Formatting
-
-/* ================================================
-
-Factory Name, worker names, maybe number suffix handling.
-
-=================================================*/
-
 
 function generateFactoryName(){
 	// randomly choose 2 (or 3?) words from lists that create a dumb name.
 	return "Placeholder Inc";
 }
 
-function generateWorkerNames(){
-	"Winston";
+function generateWorkerName(){
+	// randomly choose a name from a list.
+	return "Winston";
 }
 
+function generateDropshipName(){
+	return "Lametown Express";
+	// Maybe? Choose random words to create a super cringe only shop name. 
+}
+
+function generateNewsHeadlines(){
+	return "Extra Extra! Something about tacks!";
+	// It's like a staple of the genre. I have a ticker so I may as well.
+	
+}
+
+var ticker = l("ticker");
+
+function getNewTicker(){
+	var list=[];
+
+	// Will always play a generic one on refresh because values aren't always set.
+	list.push(choose([
+	`<q>Without thumbs, we are nothing. Without tacks, we are even less.</q><sig>  -Unknown</sig>`,
+	`<q>Give me a place to stand and a thumb tack long enough, and I will pin the world.</q><sig>  -Archimedes</sig>`,
+	`<q>I think, therefore I tack.</q><sig>  -Rene Descartes</sig>`,
+	`<q>The only thing we have to fear.. is running out of tacks.</q><sig>  -FDR</sig>`,
+	`<q>Float like a butterfly, sting like a tack.</q><sig>  -Muhammad Ali</sig>`,
+	`<q>Judge an idea by the sharpness of the tack, not the stickiness of the tape.</q><sig>  -Korean Elvis</sig>`,
+	`<q>You miss 100% of the tacks you don't pin.</q><sig>  -Wayne Gretzky</sig>`,
+	`<q>He who would move the world should first tack his own board.</q><sig>  -Socrates</sig>`,
+	`<q>Man is condemned to be tacked.</q><sig>  -Sartre</sig>`,
+	`<q>The unexamined tack is not worth pinning.</q><sig>  -Socrates</sig>`,
+	`<q>I tack, therefore I conquer.</q><sig>  -Descartes</sig>`,
+	`<q>What is a tack but a will to power.</q><sig>  -Nietzsche</sig>`,
+	`<q>A single tack can change the fate of nations</q><sig>  -Unknown</sign>`,
+	`<q>The only certainties in life are death and tacks</q><sig>  -Unknown</sign>`,
+	`<q>The supreme art of war is to pin the enemy without a fight</q><sig>  -Sun Tzu [The Art of A Tack]</sig>`,
+	`<q>Even a thumb tack, perfectly placed, casts a long shadow.</q><sig>  -Laozi</sig>`,
+	`<q>To be is to be pinned.</q><sig>  -George Berkeley</sig>`,
+	`<q>All that is tacked melts into air.</q><sig>  -Karl Marx</sig>`,
+	`<q>We are but fleeting notes, pinned briefly in the corkboard of time.</q><sig>  -Marcus Aurelius</sig>`,
+	`<q>Freedom is the space between the pins.</q><sig>  -Camus</sig>`,
+	]));
+	
+	if(DATA.pointersOwned > 10 & Math.random() < 0.1){ list.push(choose([
+	`<q>Reap the tacks of a pointed finger.</q><sig>  -Unknown</sig>`,
+	`<q>Two hands do less work than ten fingers</q><sig>  -Unknown</sig>`
+	]));}
+
+	return choose(list);
+}
+
+function runTicker(){
+	var str = getNewTicker();
+	ticker.innerHTML = str;
+}
+
+setInterval(runTicker, 17000);
 
 // #endregion
 
+
+loadGame();
 </script>
 </html>
