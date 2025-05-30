@@ -46,6 +46,11 @@ p.tps{
 	font-size: 14px;
 	margin: 0px;
 }
+p.ticker{
+	font-size: 14px;
+	margin-top: 1px;
+	padding: 0px;
+}
 h1 {
 	text-align: center;
 	color: var(--black);
@@ -287,7 +292,7 @@ div.line{
 	<div id="notificationContainer" style="pointer-events: none; position: fixed; display: flex; bottom: 32px; text-align: center; align-items: center; width: 100%; flex-direction: column-reverse;">
 	</div>
 <footer style="pointer-events: none; padding-bottom: 16px;">
-	<label class="small">© Ryan Appleyard MMXXV</label>	
+	<label class="small" id="copyright"></label>	
 	<br>
 	<label class="small" id="versionLbl"></label>
 </footer>
@@ -299,12 +304,16 @@ div.line{
 /*=========================================================================
 
 == TO-DO ==
-- Fix timers
-- Rename central data to more intuitive names i.e. pointerAmount => OwnedPointers
-- Create a seed function
-- Reorganise
+✓ Organise things
+✓ Rename central data
+✓ Create seed function
+✓ Misc refactoring
+✓ Romanized
+✓ Fix timers
 - Sort out string storage 	i.e: preferences.theme?'1':'0'; etc.
 - Tool tips and dynamic HTML
+- Implement cost increase
+- Finalise progression ideas
 
 == Tackonomics ==
 A rework of the Tack in/out system. Already well overdue I reckon.
@@ -333,6 +342,30 @@ I need to nail tooltips and alt windows and stuff first though.
 
 Achievements would also be cool. Need to consider the impact on SaveData though.
 
+WORKS ON CANVAS
+─│┌┐└┘├┤┬┴┼═║╒╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡╢╣╤╥╦╧╨╩╪╫╬▀▄█▌▐■▬▲►▼◄◦☺☻●░▒▓₸
+
+✓
+
+3D Printer: Phased animation.
+["  ┌─┐ ",
+ "  │▒│ ",
+ "╔═╧═╧╗",
+ "╠═╤■═╣",
+ "║ █▄ ║",
+ "▀▀▀▀▀▀"],
+["  ┌─┐ ",
+ "  │▒│ ",
+ "╔═╧═╧╗",
+ "║    ║",
+ "╠═╤■═╣",
+ "▀▀▀▀▀▀"],
+["  ┌─┐ ",
+ "  │▒│ ",
+ "╔═╧═╧╗",
+ "║    ║",
+ "╠╤■══╣",
+ "▀▀▀▀▀▀"],
 =========================================================================*/
 
 // #region Data
@@ -371,9 +404,22 @@ function getVersionDate(){
 	return (`${r[8]}${r[9]}.${r[3]}${r[4]}`);
 }
 
-function getYearInNumerals(){
-	// I want MMXXV for 2025
-	// It's another regex challenge
+function setCopyright(){
+	const ra = "© Ryan Appleyard ";
+	let y = new Date().getFullYear();
+	updateLabel["copyright"](ra + romanize(y));
+}
+
+// taken from https://blog.stevenlevithan.com/archives/javascript-roman-numeral-converter
+function romanize(num) {
+  var lookup = {M:1000,CM:900,D:500,CD:400,C:100,XC:90,L:50,XL:40,X:10,IX:9,V:5,IV:4,I:1},roman = '',i;
+  for ( i in lookup ) {
+    while ( num >= lookup[i] ) {
+      roman += i;
+      num -= lookup[i];
+    }
+  }
+  return roman;
 }
 
 const VERSION_DATE = getVersionDate();
@@ -398,8 +444,13 @@ let _tacksPerClick = 1;
 
 let _pointersOwned = 0;
 let _workersOwned = 0;
+let _totalTacksEarned = 0;
 let _totalHandmadeTacks = 0;
 let _clicks = 0;
+
+let _lastKnownTheme;
+
+const canvasHeight = 200;
 
 const DATA = {
 	version: VERSION,
@@ -412,14 +463,14 @@ const DATA = {
 	pointersOwned: 0,
 	workersOwned: 0,
 	playedTime: 0,
-	theme: THEME.LIGHT
+	theme: _lastKnownTheme || THEME.LIGHT
 }
 
 // Light and Dark refer to the themes they are paired with.
 const COLOURS = {
 	green: {
-		light: "#3C983E",
-		dark: "#6FD08C"
+		light: "#035F32",
+		dark: "#43FFAE"
 	},
 	red: "#FC5130",
 	text: {
@@ -429,20 +480,28 @@ const COLOURS = {
 	ascii: {
 		light: "#5c5b59",
 		dark: "#B1A688"
+	},
+	base: {
+		light: "#f5f1ec",
+		dark: "#171717"
+	},
+	baseInv: {
+		light: "#171717",
+		dark: "#f5f1ec"
 	}
 }
 
 let AUTO_VALUE = {
 	pointer: 0.25,
-	worker: 0.4
+	worker: 0.4,
+	printer: 1
 }
 
 let COST = {
 	pointer: 20,
-	worker: 100
+	worker: 100,
+	printer: 700,
 }
-
-// #endregion
 
 const FPS = 1000 / 32;
 let _upTimeElapsed = 0;
@@ -450,7 +509,6 @@ let _playedTimeElapsed = 0;
 let startTime = Date.now();
 
 const notificationContainer = l("notificationContainer");
-
 
 const updateLabel = {
 	version: (val) => { l("versionLbl").textContent = val; },
@@ -461,18 +519,27 @@ const updateLabel = {
 	title: (val) => { l("title").textContent = val; },
 	dateTime: (val) => { l("dateTimeLbl").textContent = val; },
 	upTime: (val) => { l("upTimeLbl").textContent = val; },
-	playTime: (val) => { l("playedTimeLbl").textContent = val; }
+	playTime: (val) => { l("playedTimeLbl").textContent = val; },
+	copyright: (val) => { l("copyright").textContent = val; },
 };
+
+// #endregion
 
 // #region Save Logic
 
 function newGame() {
 	localStorage.removeItem("tacksSave");
 	loadGame(true);
+	resetTime();
 	subtractGuy(workers.length);
 	subtractPointer(pointers.length);
-	refresh();
+	onRefresh();
 	printNotification("New Game Started", COLOURS.green);
+}
+
+function resetTime(){
+	_upTimeElapsed = 0;
+	_playedTimeElapsed = 0;
 }
 
 const FIXED_KEY = "tackstack-key123"; // Shared secret
@@ -506,6 +573,9 @@ async function getKey() {
 }
 
 async function saveGame(autosave) {
+
+	await saveIntoData();
+
 	const key = await getKey();
 	const iv = crypto.getRandomValues(new Uint8Array(12));
 	const encoded = new TextEncoder().encode(JSON.stringify(DATA));
@@ -518,7 +588,7 @@ async function saveGame(autosave) {
 
 	localStorage.setItem("tacksSave", JSON.stringify(encryptedData));
 
-	if (!autosave) printNotification("Saved Game", COLOURS.green);
+	if (!autosave) printNotification("Saved Game", getColor(COLOURS.green));
 }
 
 function autosaveGame() {
@@ -535,10 +605,10 @@ async function loadGame(newGame) {
 		_tacks =  0;
 		_pointersOwned = 0;
 		_workersOwned = 0;
-		DATA.playedTime = 0;
+		_playedTimeElapsed = 0;
 		DATA.version = getVersion();
-		DATA.theme = THEME.LIGHT; // Is there a way to get this to be system default?
-		refresh();
+		DATA.theme = _lastKnownTheme || THEME.LIGHT; // Is there a way to get this to be system default?
+		onRefresh();
 		printNotification("New Game!", COLOURS.green);
 		return;
 	}
@@ -562,9 +632,9 @@ async function loadGame(newGame) {
 		_workersOwned = parsed.workersOwned || 0;
 		_playedTimeElapsed = parsed.playedTime || 0;
 		DATA.version = parsed.version || getVersion();
-		DATA.theme = parsed.theme || THEME.LIGHT;
+		_lastKnownTheme = parsed.theme || THEME.LIGHT;
 		saveIntoData();
-		refresh();
+		onRefresh();
 		printNotification("Game Loaded", COLOURS.green);
 	} catch (err) {
 		console.error("Decryption failed:", err);
@@ -576,24 +646,38 @@ async function saveIntoData(){
 	DATA.pointersOwned = _pointersOwned;
 	DATA.workersOwned = _workersOwned;
 	DATA.playedTime = _playedTimeElapsed;
+	DATA.theme = _lastKnownTheme;
+
+	return;
 }
 
-setInterval(autosaveGame, 600000);
+function bootstrap(){
+	setCopyright();
+	updatePointer();
+	updateWorker();
+	updateTack();
+	loadGame();
+
+	setInterval(refreshDisplay, 1000 / FPS);
+	setInterval(secondDisplay, 1000);
+	setInterval(autosaveGame, 600000);
+
+	updateLabel["version"](VERSION);
+}
+
 
 // #endregion
 
-updateLabel["version"](VERSION);
-
 // #region Buttons
 
-l("btn").addEventListener("click", context=>{ increment(_tacksPerClick);});
+l("btn").addEventListener("click", context=>{ addTack(_tacksPerClick);});
 l("pointerBtn").addEventListener("click", context=>{ buy("pointer"); });
 l("workerBtn").addEventListener("click", context=>{ buy("worker"); });
 l("toggleDark").addEventListener("click", function(){ toggleTheme(); });
 l("saveGame").addEventListener("click", function(){ saveGame(); })
 l("newGame").addEventListener("click", function(){ newGame(); })
 l("cheat").addEventListener("click", function(){
-	incrementDataField("tacks", 999999);
+	addTack(1000000);
 	buy("worker", 20, true);
 	buy("pointer", 20, true);
 });
@@ -602,27 +686,33 @@ l("cheat").addEventListener("click", function(){
 
 // #region Game Logic
 
-async function refresh(){
+async function onRefresh(){
 	forceUpdateTheme();
-	setDataField("tacks", _tacks);
-	setDataField("pointersOwned", _pointersOwned);
-	setDataField("workersOwned", _workersOwned);
 	await repopulate();
-	// Calculate compounding price changes.
 }
 
 async function repopulate(){
+	// clearCanvas(pointerCanvas);
+	// clearCanvas(workerCanvas);
+	subtractGuy(workers.length);
+	subtractPointer(pointers.length);
 	populateGuys();
 	populatePointers();
 }
 
-function increment(amount){
+function clearCanvas(canvas){
+	const ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function addTack(amount){
+	_totalTacksEarned += amount;
 	_tacks += amount;
 	createTack(amount);
 }
 
-function incrementSpecific(name, amount) {
-	const label = document.getElementById(name + "Lbl");
+function addToLabel(name, amount) {
+	const label = l(name + "Lbl");
 
 	if (!label) {
 		console.warn(`Label element not found: ${name}Lbl`);
@@ -636,39 +726,6 @@ function incrementSpecific(name, amount) {
 	label.textContent = Math.floor(newVal);
 }
 
-
-function incrementDataField(fieldName, amount = 1) {
-	if (Object.prototype.hasOwnProperty.call(DATA, fieldName) && typeof DATA[fieldName] === "number") {
-		DATA[fieldName] += amount;
-
-		// Check for a label updater function specific to this field
-		if (typeof updateLabel[fieldName] === "function") {
-			updateLabel[fieldName](DATA[fieldName]);
-		}
-
-		return DATA[fieldName];
-	} else {
-		console.warn(`Invalid field name or non-numeric field: "${fieldName}"`);
-		return null;
-	}
-}
-
-function setDataField(fieldName, amount = 1) {
-	if (Object.prototype.hasOwnProperty.call(DATA, fieldName) && typeof DATA[fieldName] === "number") {
-		DATA[fieldName] = amount;
-
-		// Check for a label updater function specific to this field
-		if (typeof updateLabel[fieldName] === "function") {
-			updateLabel[fieldName](DATA[fieldName]);
-		}
-
-		return DATA[fieldName];
-	} else {
-		console.warn(`Invalid field name or non-numeric field: "${fieldName}"`);
-		return null;
-	}
-}
-
 function subtractTacks(amount){ _tacks -= amount; }
 
 function canAfford(price){ return true ? price <= parseInt(_tacks, 10) : false; }
@@ -676,11 +733,9 @@ function canAfford(price){ return true ? price <= parseInt(_tacks, 10) : false; 
 function getPrice(type){ return COST[type]; }
 
 function buy(type, amount = 1, cheat = false){
-	let price = getPrice(type);
-	if(cheat){price = 0};
+	let price = cheat? 0 : getPrice(type);
 	if(canAfford(price)){
 		subtractTacks(price);
-		incrementDataField(type + "sOwned", amount);
 		create(type, amount);
 		printNotification("Bought: " + amount + "x " + type, COLOURS.text, 2000);
 		return true;
@@ -689,6 +744,12 @@ function buy(type, amount = 1, cheat = false){
 		printNotification("Can't afford another " + type, COLOURS.red, 2000);
 		return false;
 	}
+}
+
+function inflatePrices(type){
+	// work out the curve you want to implement and use gates to inflate the prices.
+	// Unless compounding suffices?
+	// It just has to scale faster than you can grow, so you start relying on the following mechanics.
 }
 
 function create(type, amount){
@@ -704,7 +765,6 @@ function create(type, amount){
 
 function calculateTPS(){
 	_tacksPerSecond = AUTO_VALUE.worker * _workersOwned;
-	// Add automation elements to this ------------------------------------------------------------------- !!
 }
 
 function calculateTPC(){
@@ -740,6 +800,7 @@ function getValidPosition(canvas, exclusion){
     return { x, y };
 }
 
+// Why did I make these??
 function getValidPositionX(canvas, exclusion){
 	let both = getValidPosition(canvas, exclusion);
 	return both[0];
@@ -749,6 +810,15 @@ function getValidPositionY(canvas, exclusion){
 	let both = getValidPosition(canvas, exclusion);
 	return both[1];
 }
+
+function debounce(func, delay) {
+	let timeoutId;
+	return (...args) => {
+		clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => func.apply(this, args), delay);
+	};
+}
+
 
 function wiggle(g, mouse, yMove){
 	
@@ -797,27 +867,28 @@ function sinWave(radian, radius){ return Math.sin(radian) * radius; }
 
 // #region Display
 
+// Called at FPS (1000 / 30);
 function refreshDisplay(){
 	calculateTPS();
 	calculateTPC();
 	_tacks += _tacksPerSecond / FPS;
-	updateLabel["tacks"](numberWithCommas(_tacks.toFixed(0)));
+	updateLabel["tacks"](numberWithCommas(Math.floor(_tacks)));
 	updateLabel["tps"](_tacksPerSecond.toFixed(2) + " tps");
 	updateLabel["dateTime"](new Date().toLocaleString());
 	updateLabel["playTime"](`Played Time: ${convertTime(_playedTimeElapsed)}`);
 	updateLabel["upTime"](`Up Time: ${convertTime(_upTimeElapsed)}`);
+	updateLabel["workersOwned"](_workersOwned);
+	updateLabel["pointersOwned"](_pointersOwned);
 }//buffalo
 
+// Called per second
 function secondDisplay(){
-	increment(_tacksPerSecond);
-	updateLabel["title"](`${_tacks.toFixed(0)} Tacks!`);
+	createTack(_tacksPerSecond);
+	updateLabel["title"](`${Math.floor(_tacks)} Tacks!`);
 	_upTimeElapsed++;
 	_playedTimeElapsed++;
-	DATA.playedTime = _playedTimeElapsed;
+	saveIntoData();
 }
-
-setInterval(refreshDisplay, 1000 / FPS);
-setInterval(secondDisplay, 1000);
 
 function toggleTheme(){
 	document.body.classList.toggle("light");
@@ -826,37 +897,31 @@ function toggleTheme(){
 
 function updateTheme(){
 	if(getCurrentTheme() === "light"){
-		DATA.theme = THEME.LIGHT;
+		_lastKnownTheme = THEME.LIGHT;
 	}
 	else{
-		DATA.theme = THEME.DARK;
+		_lastKnownTheme = THEME.DARK;
 	}
 }
 
 function forceUpdateTheme(){
-	if(DATA.theme != getCurrentTheme()){ toggleTheme(); }
+	if(_lastKnownTheme != getCurrentTheme()){ toggleTheme(); }
 }
 
 function getCurrentTheme(){
 	return isLightMode() ? THEME.LIGHT: THEME.DARK;
 }
 
-function convertTime(timeIn){
-
-	// This needs fixing, it's going up to like 100 minutes.
-
-	const hours = Math.floor(timeIn / 3600);
-	const minutes = Math.floor((timeIn % 36000) / 60 % 60);
-	const seconds = timeIn % 60;
-
-	return (`${hours}h ${minutes}m ${seconds}s`);
-}
-
+// Expand on this to make it work for achievements.
 function printNotification(message, color, duration = 3000){
 	const note = document.createElement("div");
 	note.className = "notification";
 	note.textContent = message;
 	note.style.color = getColor(color);
+	note.style.backgroundColor = getColor(COLOURS.base);
+	note.style.border = "solid 1px " + getColor(COLOURS.baseInv);
+	note.style.fontWeight = "bold";
+	note.style.zIndex = "20";
 
 	notificationContainer.appendChild(note);
 
@@ -867,6 +932,8 @@ function printNotification(message, color, duration = 3000){
 	}, duration);
 }
 
+// space for tooltips I guess
+
 function getColor(type) {
     if (typeof type === "string") return type;
     return isLightMode() ? type.light : type.dark;
@@ -876,31 +943,27 @@ function isLightMode() {
     return document.body.classList.contains("light");
 }
 
-// I need a new version of this.
-function numberWithCommas(x) {
-    x = x.toString();
-    var pattern = /(-?\d+)(\d{3})/;
-    while (pattern.test(x))
-        x = x.replace(pattern, "$1,$2");
-    return x;
-}
-
-window.addEventListener("resize", resizeWindow);
+window.addEventListener("resize", debounce(resizeWindow, 150));
 
 function resizeWindow(){
 	resizeCanvas(workerCanvas, workers);
 	resizeCanvas(pointerCanvas, pointers);
+	resizeCanvas(tackCanvas, tacks);
 }
 
-function resizeCanvas(canvas, collection){
-	canvas.height = window.innerHeight;
-	canvas.width = window.innerWidth - 80;
+function resizeCanvas(canvas, collection) {
+	canvas.width = window.innerWidth;
 	const exclusion = getExclusion(canvas);
 
-	collection.forEach(g =>{
-		g.homeX = getValidPositionX(canvas, exclusion);
-	})
+	requestAnimationFrame(() => repopulate());
+
+	// requestAnimationFrame(() => {
+	// 	collection.forEach(g => {
+	// 		g.homeX = getValidPositionX(canvas, exclusion);
+	// 	});
+	// });
 }
+
 
 // #endregion
 
@@ -959,9 +1022,8 @@ function perlin(x, y, z) {
   );
 }
 
-// const chars = " '   .,-*=##$&@";
 const chars = "    ..:oO0@ ";
-const userScreen = document.getElementById("ascii");
+const userScreen = l("ascii");
 let t = 0;
 let paused = false;
 
@@ -1010,7 +1072,7 @@ const W_BASE_FONT_SIZE = 12;
 const W_MAX_FONT_SIZE = 16;
 const P_MAX_FONT_SIZE = 13;
 const SCALE_RADIUS = 100;
-const ROT_RADIUS = 100;
+const ROT_RADIUS = 100; // UNUSED
 
 function getExclusion(canvas){
 	return {
@@ -1021,9 +1083,8 @@ function getExclusion(canvas){
 	};
 }
 
-function createSprite(count, sprite, canvas, collection, amount){
-	count += amount
-	populateSprite(count, sprite, canvas, collection);
+function createSprite(sprite, canvas, collection, amount){
+	populateSprite(amount, sprite, canvas, collection);
 }
 
 function populateSprite(count, sprite, canvas, collection){
@@ -1043,20 +1104,13 @@ function populateSprite(count, sprite, canvas, collection){
 
 // #endregion
 
-// #region Guys
+// #region Art
 
-function populateGuys(){
-	populateSprite(_workersOwned, CHAR_GUY, workerCanvas, workers);
-}
+//reformat to be a central source for ASCII art.
 
-function createWorker(amount = 1){
-	createSprite(_workersOwned, CHAR_GUY, workerCanvas, workers, amount);
-}
-
-const workerCanvas = document.getElementById("workerCanvas");
-const workerCtx = workerCanvas.getContext("2d");
-workerCanvas.width = window.innerWidth;
-workerCanvas.height = 200;
+const CHAR_TACK = [
+[ " Π ",
+  " T " ]];
 
 const CHAR_GUY = [
 [
@@ -1088,13 +1142,43 @@ const CHAR_GUY = [
 	"  o  ",
 	" (Y) ",
 	" / \\ "
+],
+];
+
+const CHAR_POINTER = [[
+	 "   |  ",
+	 "r^^|  ",
+	"\\__|) "
+],
+[
+	 "  |   ",
+	 "r^'^  ",
+	"\\__|) "
 ]];
+
+// #endregion
+
+// #region Guys Render
+
+function populateGuys(){
+	populateSprite(_workersOwned, CHAR_GUY, workerCanvas, workers);
+}
+
+function createWorker(amount){
+	_workersOwned += amount;
+	createSprite(CHAR_GUY, workerCanvas, workers, amount);
+}
+
+const workerCanvas = document.getElementById("workerCanvas");
+const workerCtx = workerCanvas.getContext("2d");
+workerCanvas.width = window.innerWidth;
+workerCanvas.height = canvasHeight;
 
 const workerMouse = { x: 0, y: 0 };
 const workers = [];
 
 workerCanvas.addEventListener("mousemove", e => {
-	const rect = workerCanvas.getBoundingClientRect(); // get canvas position & size
+	const rect = workerCanvas.getBoundingClientRect();
 	workerMouse.x = e.clientX - rect.left; // mouse x relative to canvas
 	workerMouse.y = e.clientY - rect.top;  // mouse y relative to canvas
 });
@@ -1133,31 +1217,21 @@ function updateWorker() {
 
 // #endregion
 
-// #region Pointers
+// #region Pointers Render
 
 function populatePointers(){
 	populateSprite(_pointersOwned, CHAR_POINTER, pointerCanvas, pointers);
 }
 
-function createPointer(amount = 1){
-	createSprite(pointerCount, CHAR_POINTER, pointerCanvas, pointers, amount);
+function createPointer(amount){
+	_pointersOwned += amount;
+	createSprite(CHAR_POINTER, pointerCanvas, pointers, amount);
 }
 
-const pointerCanvas = document.getElementById("pointerCanvas");
+const pointerCanvas = l("pointerCanvas");
 const pointerCtx = pointerCanvas.getContext("2d");
 pointerCanvas.width = window.innerWidth;
-pointerCanvas.height = 200;
-
-const CHAR_POINTER = [[
-	"   |  ",
-	"r^^|  ",
-	"\\__|) "
-],
-[
-	"  |   ",
-	"r^'^  ",
-	"\\__|) "
-]];
+pointerCanvas.height = canvasHeight;
 
 let pointerCount = 0;
 const pointerMouse = { x: 0, y: 0 }
@@ -1205,25 +1279,20 @@ function updatePointer() {
 // #endregion
 
 // #region Tack Render
+
 function createTack(amount = 1) {
 	if(tacks.length >= MAX_SPRITE_COUNT) return;
-	createSprite(tackCount, CHAR_TACK, tackCanvas, tacks, amount)
+	createSprite(CHAR_TACK, tackCanvas, tacks, amount)
 }
 
 function populateTack(){
 	populateSprite(tackCount, CHAR_TACK, tackCanvas, tacks);
 }
 
-// === CANVAS SETUP ===
-const tackCanvas = document.getElementById("tackCanvas");
+const tackCanvas = l("tackCanvas");
 const tackCtx = tackCanvas.getContext("2d");
 tackCanvas.width = window.innerWidth;
-tackCanvas.height = 200;
-
-// === SPRITES & DATA ===
-const CHAR_TACK = [
-[ " Π ",
-  " T " ]];
+tackCanvas.height = canvasHeight;
 
 const T_BASE_FONT_SIZE = 18;
 const yVelocity = 2;
@@ -1231,7 +1300,6 @@ let tackCount = 0;
 const tackMouse = { x: 0, y: 0 };
 let tacks = [];
 
-// === DRAWING ===
 function drawTack(tackSprite, x, y, scale) {
 	const tackFontSize = T_BASE_FONT_SIZE * scale;
 	const lineHeight = tackFontSize / 2;
@@ -1245,7 +1313,6 @@ function drawTack(tackSprite, x, y, scale) {
 	}
 }
 
-// === UPDATE LOOP ===
 function updateTack() {
 	tackCtx.clearRect(0, 0, tackCanvas.width, tackCanvas.height);
 
@@ -1254,7 +1321,7 @@ function updateTack() {
 	tacks.forEach(p => {
 		p.homeY += Math.random() * yVelocity + 1;
 		const v = wiggle(p, tackMouse, 0);
-		drawTack(p.sprite, v[0], p.homeY - 200, v[2]);
+		drawTack(p.sprite, v[0], p.homeY - canvasHeight, v[2]);
 	});
 	
 	requestAnimationFrame(updateTack);
@@ -1262,15 +1329,52 @@ function updateTack() {
 
 // #endregion
 
-updatePointer();
-updateWorker();
-updateTack();
-
 // #region Naming & Formatting
+
+function convertTime(timeIn, detail = 3){
+	// This needs fixing, it's going up to like 100 minutes.
+	// I don't know why? Am I being stupid?
+	const hours = Math.floor(timeIn / 3600);
+	const minutes = Math.floor((timeIn % 36000) / 60 % 60);
+	const seconds = Math.floor(timeIn % 60);
+	
+	var str = "uh oh";
+	var bits = [];
+
+	if(detail >= 1) bits.push(hours + " hour" + ((hours==1)?"":"s"));
+	if(detail >= 2) bits.push(minutes + " minute" + ((minutes==1)?"":"s"));
+	if(detail >= 3) bits.push(seconds + " second" + ((seconds==1)?"":"s"));
+	
+	str = bits.join(', ');
+	return str;
+}
+
+// I need a new version of this.
+function numberWithCommas(x) {
+    x = x.toString();
+    var pattern = /(-?\d+)(\d{3})/;
+    while (pattern.test(x))
+        x = x.replace(pattern, "$1,$2");
+    return x;
+}
 
 function generateFactoryName(){
 	// randomly choose 2 (or 3?) words from lists that create a dumb name.
-	return "Placeholder Inc";
+	var str = '';
+	var list=[];
+	// First name
+	list.push(choose(['Something', 'Another', 'Cool']));
+
+	// Second
+	list.push(choose(['Something', 'Another', 'Cool']));
+
+	// Third
+	list.push(choose(['Inc.', 'Co.', 'Ltd.']));
+
+	str = list.join(' ');
+
+	return str;
+	
 }
 
 function generateWorkerName(){
@@ -1286,7 +1390,6 @@ function generateDropshipName(){
 function generateNewsHeadlines(){
 	return "Extra Extra! Something about tacks!";
 	// It's like a staple of the genre. I have a ticker so I may as well.
-	
 }
 
 var ticker = l("ticker");
@@ -1296,32 +1399,43 @@ function getNewTicker(){
 
 	// Will always play a generic one on refresh because values aren't always set.
 	list.push(choose([
-	`<q>Without thumbs, we are nothing. Without tacks, we are even less.</q><sig>  -Unknown</sig>`,
-	`<q>Give me a place to stand and a thumb tack long enough, and I will pin the world.</q><sig>  -Archimedes</sig>`,
-	`<q>I think, therefore I tack.</q><sig>  -Rene Descartes</sig>`,
-	`<q>The only thing we have to fear.. is running out of tacks.</q><sig>  -FDR</sig>`,
-	`<q>Float like a butterfly, sting like a tack.</q><sig>  -Muhammad Ali</sig>`,
-	`<q>Judge an idea by the sharpness of the tack, not the stickiness of the tape.</q><sig>  -Korean Elvis</sig>`,
-	`<q>You miss 100% of the tacks you don't pin.</q><sig>  -Wayne Gretzky</sig>`,
-	`<q>He who would move the world should first tack his own board.</q><sig>  -Socrates</sig>`,
-	`<q>Man is condemned to be tacked.</q><sig>  -Sartre</sig>`,
-	`<q>The unexamined tack is not worth pinning.</q><sig>  -Socrates</sig>`,
-	`<q>I tack, therefore I conquer.</q><sig>  -Descartes</sig>`,
-	`<q>What is a tack but a will to power.</q><sig>  -Nietzsche</sig>`,
-	`<q>A single tack can change the fate of nations</q><sig>  -Unknown</sign>`,
-	`<q>The only certainties in life are death and tacks</q><sig>  -Unknown</sign>`,
-	`<q>The supreme art of war is to pin the enemy without a fight</q><sig>  -Sun Tzu [The Art of A Tack]</sig>`,
-	`<q>Even a thumb tack, perfectly placed, casts a long shadow.</q><sig>  -Laozi</sig>`,
-	`<q>To be is to be pinned.</q><sig>  -George Berkeley</sig>`,
-	`<q>All that is tacked melts into air.</q><sig>  -Karl Marx</sig>`,
-	`<q>We are but fleeting notes, pinned briefly in the corkboard of time.</q><sig>  -Marcus Aurelius</sig>`,
-	`<q>Freedom is the space between the pins.</q><sig>  -Camus</sig>`,
+		`<q>Without thumbs, we are nothing. Without tacks, we are even less.</q><sig>  -Unknown</sig>`,
+		`<q>Give me a place to stand and a thumb tack long enough, and I will pin the world.</q><sig>  -Archimedes</sig>`,
+		`<q>I think, therefore I tack.</q><sig>  -Descartes</sig>`,
+		`<q>Float like a butterfly, sting like a tack.</q><sig>  -Muhammad Ali</sig>`,
+		`<q>Judge an idea by the sharpness of the tack, not the stickiness of the tape.</q><sig>  -Korean Elvis</sig>`,
+		`<q>You miss 100% of the tacks you don't pin.</q><sig>  -Wayne Gretzky</sig>`,
+		`<q>He who would move the world should first tack his own board.</q><sig>  -Socrates</sig>`,
+		`<q>Man is condemned to be tacked.</q><sig>  -Sartre</sig>`,
+		`<q>The unexamined tack is not worth pinning.</q><sig>  -Socrates</sig>`,
+		`<q>I tack, therefore I conquer.</q><sig>  -Descartes</sig>`,
+		`<q>What is a tack but a will to power.</q><sig>  -Nietzsche</sig>`,
+		`<q>A single tack can change the fate of nations</q><sig>  -Unknown</sign>`,
+		`<q>The only certainties in life are death and tacks</q><sig>  -Unknown</sign>`,
+		`<q>The supreme art of war is to pin the enemy without a fight</q><sig>  -Sun Tzu [The Art of A Tack]</sig>`,
+		`<q>Even a thumb tack, perfectly placed, casts a long shadow.</q><sig>  -Laozi</sig>`,
+		`<q>To be is to be pinned.</q><sig>  -George Berkeley</sig>`,
+		`<q>All that is tacked melts into air.</q><sig>  -Karl Marx</sig>`,
+		`<q>We are but fleeting notes, pinned briefly in the corkboard of time.</q><sig>  -Marcus Aurelius</sig>`,
+		`<q>Freedom is the space between the pins.</q><sig>  -Camus</sig>`,
+		`<q>Buffalo<q><sig>  -CMH</sig>`,
 	]));
 	
-	if(DATA.pointersOwned > 10 & Math.random() < 0.1){ list.push(choose([
-	`<q>Reap the tacks of a pointed finger.</q><sig>  -Unknown</sig>`,
-	`<q>Two hands do less work than ten fingers</q><sig>  -Unknown</sig>`
+	if(_pointersOwned > 10 & Math.random() < 0.1){ list.push(choose([
+		`<q>Reap the tacks of a pointed finger.</q><sig>  -Unknown</sig>`,
+		`<q>Two hands do less work than ten fingers</q><sig>  -Unknown</sig>`
 	]));}
+	
+	if(_workersOwned > 10 & Math.random() < 0.1){ list.push(choose([
+		`<p class="ticker">NEWS : Workers flocking to growing markets.</p>`,
+		`<p class="ticker">NEWS : Sellotape factory set ablaze.</p>`,
+	]));}
+
+	if(_totalTacksEarned > 1000000 & Math.random() < 0.1){ list.push(choose([
+		`<p class="ticket">That's too many tacks bro</p>`
+	]));}
+
+	
 
 	return choose(list);
 }
@@ -1336,6 +1450,7 @@ setInterval(runTicker, 17000);
 // #endregion
 
 
-loadGame();
+bootstrap();
+
 </script>
 </html>
