@@ -961,6 +961,7 @@ function resizeWindow(){
 	resizeCanvas(workerCanvas, workers);
 	resizeCanvas(pointerCanvas, pointers);
 	resizeCanvas(tackCanvas, tacks);
+	resizeCanvas(printerCanvas, printers);
 }
 
 function resizeCanvas(canvas, collection) {
@@ -1105,9 +1106,9 @@ function populateSprite(count, sprite, canvas, collection, animated, pb = 0, pt 
 
 	// I need to find a way to move this to a sort of universal draw function.
 	let spr;
-	spr = animated ? sprite[0] : sprite[Math.floor(Math.random() * sprite.length)];
-
+	
 	for (let i = 0; i < count; i++) {
+		spr = animated ? sprite[0] : sprite[Math.floor(Math.random() * sprite.length)];
 		const {x: X, y:Y} = getValidPosition(canvas, exclusion, pb, pt, pl, pr)
 		collection.push({
 			homeX: X,
@@ -1198,11 +1199,17 @@ const CHAR_PRINTER = [
   "║    ║",
   "╠╤■══╣",
   "▀▀▀▀▀▀"],
-  // Second Layer
+
  ["  ┌─┐ ",
   "  │▒│ ",
   "╔═╧═╧╗",
   "╠╤■══╣",
+  "║ █▄ ║",
+  "▀▀▀▀▀▀"],
+ ["  ┌─┐ ",
+  "  │▒│ ",
+  "╔═╧═╧╗",
+  "╠═╤■═╣",
   "║ █▄ ║",
   "▀▀▀▀▀▀"],
  ["  ┌─┐ ",
@@ -1215,12 +1222,6 @@ const CHAR_PRINTER = [
   "  │▒│ ",
   "╔═╧═╧╗",
   "╠═╤■═╣",
-  "║ █▄ ║",
-  "▀▀▀▀▀▀"],
- ["  ┌─┐ ",
-  "  │▒│ ",
-  "╔═╧═╧╗",
-  "╠╤■══╣",
   "║ █▄ ║",
   "▀▀▀▀▀▀"],
 ];
@@ -1350,12 +1351,12 @@ function updateWorker() {
 // #region Printer Render
 
 function populatePrinter(){
-	populateSprite(_printersOwned, CHAR_PRINTER, printerCanvas, printers, pb = 50);
+	populateSprite(_printersOwned, CHAR_PRINTER, printerCanvas, printers);
 }
 
 function createPrinter(amount = 1){
 	_printersOwned += amount;
-	createSprite(CHAR_PRINTER, printerCanvas, printers, amount, true, pb = 50);
+	createSprite(CHAR_PRINTER, printerCanvas, printers, amount, true);
 }
 
 const printerCanvas = l("printerCanvas");
@@ -1398,7 +1399,7 @@ function updatePrinter(){
 	var pos = getValidPosition(printerCanvas, getExclusion(printerCanvas));
 
 	printers.forEach(p => {
-		const v = wiggle(p, printerMouse, 0.3, 0)
+		const v = wiggle(p, printerMouse, 0.3, 0.2)
 		drawPrinter(p.sprite, v[0], v[1], v[2], true);
 	})
 
